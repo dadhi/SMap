@@ -1,3 +1,14 @@
+// trait M[K] {
+//   abstract class Entry extends M[K] {
+//     val key: K
+//   }
+// }
+
+// final class SEntry[K](key: K) extends M[K]().Entry[K] {}
+
+// val e = new SEntry[Int](42)
+// println(e.key)
+
 def abs(n: Int) = if (n < 0) -n else n
 
 abs(-5)
@@ -24,3 +35,4 @@ class S { s =>
 }
 
 val s = new S
+s.y
