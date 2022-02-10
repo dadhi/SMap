@@ -9,7 +9,7 @@ trait SHashMap[K, V] {
 
   private def getEntryOrNull(hash: Int): Entry = null;
 
-  trait UpdaterOrKeeper[S] {
+  type UpdaterOrKeeper[S] = ((S, KVEntry, KVEntry) => KVEntry) {
     def apply(state: S, oldEntry: KVEntry, newEntry: KVEntry): KVEntry
   }
 
