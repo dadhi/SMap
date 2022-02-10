@@ -1,80 +1,73 @@
 package example.map
 
 trait SHashMap[K, V] {
-  import SHashMap._
-  def count: Int = 0
 
-  def getMinHashEntryOrNull: Entry[K, V] = null;
-  def getMaxHashEntryOrNull: Entry[K, V] = null;
+  val count: Int = 0
 
-  def getEntryOrNull(h: Int, k: Int): SHashMapEntry[K, V]
+  private def getMinHashEntryOrNull: Entry = null;
+  private def getMaxHashEntryOrNull: Entry = null;
 
-  def Update(newEntry: SHashMapEntry[K, V]): Entry[K, V]
+  private def getEntryOrNull(hash: Int): Entry = null;
 
   trait UpdaterOrKeeper[S] {
-    def apply(
-        state: S,
-        oldEntry: SHashMapEntry[K, V],
-        newEntry: SHashMapEntry[K, V]
-    ): SHashMapEntry[K, V]
+    def apply(state: S, oldEntry: KVEntry, newEntry: KVEntry): KVEntry
   }
 
-  def UpdateOrKeep[S](state: S)(
-      newEntry: SHashMapEntry[K, V],
+  def UpdateOrKeep[S](
+      state: S,
+      newEntry: KVEntry,
       updateOrKeep: UpdaterOrKeeper[S]
-  ): Entry[K, V]
-}
+  ): Entry
 
-case class SHashMapEntry[K, V](hash: Int, key: K, value: V)
-    extends SHashMap.Entry[K, V] {
+  trait Entry extends SHashMap[K, V] {
 
-  override def count: Int = 1
+    //   val hash: Int
 
-  override def getEntryOrNull(h: Int, k: Int): SHashMapEntry[K, V] =
-    if (hash == h && key == k) this else null
+    //   def getEntryOrNull(hash: Int, key: Int): KVEntry
 
-  override def Update(newEntry: SHashMapEntry[K, V]): SHashMap.Entry[K, V] =
-    if (key == newEntry.key) newEntry
-    else ??? //this.WithConflicting(newEntry);
+    //   // internal sealed override Entry GetEntryOrNull(int hash) => hash == Hash ? this : null;
 
-  override def UpdateOrKeep[S](
-      state: S
-  )(
-      newEntry: SHashMapEntry[K, V],
-      updateOrKeep: UpdaterOrKeeper[S]
-  ): SHashMap.Entry[K, V] =
-    if (key != newEntry.key)
-      ??? ///this.WithConflicting(newEntry);
-    else if (updateOrKeep(state, this, newEntry) != this) newEntry
-    else this
-}
+    //   // /// <summary>Lookup for the entry by Hash and Key</summary>
+    //   // public abstract SHashMapEntry<K, V> GetEntryOrNull(int hash, K key);
 
-object SHashMap {
+    //   def Update(newEntry: KVEntry): Entry
 
-  trait Entry[K, V] extends SHashMap[K, V] {
+    //   // /// <summary>Updating the entry with the new one using the `update` method</summary>
+    //   // public abstract Entry UpdateOrKeep<S>(S state, SHashMapEntry<K, V> newEntry, UpdaterOrKeeper<S> updateOrKeep);
 
-    def hash: Int
+    //   // /// <inheritdoc />
+    //   // public sealed override SHashMap<K, V> AddOrGetEntry(int hash, Entry entry) =>
+    //   //     hash > Hash ? new Leaf2(this, entry) : hash < Hash ? new Leaf2(entry, this) : (SHashMap<K, V>)this;
 
-    // internal sealed override Entry GetEntryOrNull(int hash) => hash == Hash ? this : null;
+    //   // /// <inheritdoc />
+    //   // public sealed override SHashMap<K, V> ReplaceEntry(int hash, Entry oldEntry, Entry newEntry) =>
+    //   //     this == oldEntry ? newEntry : oldEntry;
 
-    // /// <summary>Lookup for the entry by Hash and Key</summary>
-    // public abstract SHashMapEntry<K, V> GetEntryOrNull(int hash, K key);
+    //   // internal sealed override SHashMap<K, V> RemoveEntry(Entry removedEntry) =>
+    //   //     this == removedEntry ? Empty : this;
+  }
 
-    // /// <summary>Updating the entry with the new one</summary>
-    // public abstract Entry Update(SHashMapEntry<K, V> newEntry);
+  abstract class KVEntry(hash: Int, key: K, value: V) extends Entry {
 
-    // /// <summary>Updating the entry with the new one using the `update` method</summary>
-    // public abstract Entry UpdateOrKeep<S>(S state, SHashMapEntry<K, V> newEntry, UpdaterOrKeeper<S> updateOrKeep);
+    //   override val count: Int = 1
 
-    // /// <inheritdoc />
-    // public sealed override SHashMap<K, V> AddOrGetEntry(int hash, Entry entry) =>
-    //     hash > Hash ? new Leaf2(this, entry) : hash < Hash ? new Leaf2(entry, this) : (SHashMap<K, V>)this;
+    //   override def getEntryOrNull(h: Int, k: Int): KVEntry =
+    //     if (hash == h && key == k) e else null
 
-    // /// <inheritdoc />
-    // public sealed override SHashMap<K, V> ReplaceEntry(int hash, Entry oldEntry, Entry newEntry) =>
-    //     this == oldEntry ? newEntry : oldEntry;
+    //   override def Update(newEntry: KVEntry): Entry =
+    //     if (key == newEntry.key) newEntry
+    //     else ??? //this.WithConflicting(newEntry);
 
-    // internal sealed override SHashMap<K, V> RemoveEntry(Entry removedEntry) =>
-    //     this == removedEntry ? Empty : this;
+    //   override def UpdateOrKeep[S](
+    //       state: S,
+    //       newEntry: Entry,
+    //       updateOrKeep: UpdaterOrKeeper[S]
+    //   ): Entry =
+    //     if (key != newEntry.key)
+    //       ??? ///this.WithConflicting(newEntry);
+    //     else if (updateOrKeep(state, this, newEntry) != this) newEntry
+    //     else this
   }
 }
+
+object SHashMap {}
