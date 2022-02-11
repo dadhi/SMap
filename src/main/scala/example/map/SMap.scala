@@ -42,9 +42,9 @@ trait SMap[K, V] {
   ): SMap[K, V] = this
 
   /** Removes the certainly present old entry and returns the new map without
-    * the entry.</summary>
+    * the entry.
     */
-  def RemoveEntry(entry: Entry[K, V]): SMap[K, V] = this
+  protected def RemoveEntry(entry: Entry[K, V]): SMap[K, V] = this
 
   /** The function is supposed to return the entry different from the oldEntry
     * to update, and return the oldEntry to keep it.
@@ -69,7 +69,6 @@ object SMap {
 
     override def getMinHashEntryOrNull: Entry[K, V] = this
     override def getMaxHashEntryOrNull: Entry[K, V] = this
-
     override def getEntryOrNull(hash: Int): Entry[K, V] =
       if (hash == this.hash) this else null
 
@@ -77,30 +76,47 @@ object SMap {
       */
     def getEntryOrNull(hash: Int, key: Int): KVEntry[K, V]
 
-    //   // /// <summary>Lookup for the entry by Hash and Key</summary>
-    //   // public abstract SMapEntry<K, V> GetEntryOrNull(int hash, K key)
+    /** Updating the entry with the new one
+      */
+    def Update(newEntry: KVEntry[K, V]): Entry[K, V]
 
-    //   def Update(newEntry: KVEntry): Entry
+    /** Updating the entry with the new one using the `update` method
+      */
+    def UpdateOrKeep[S](
+        state: S,
+        newEntry: KVEntry[K, V],
+        updateOrKeep: UpdaterOrKeeper[S]
+    ): Entry[K, V]
 
-    //   // /// <summary>Updating the entry with the new one using the `update` method</summary>
-    //   // public abstract Entry UpdateOrKeep<S>(S state, SMapEntry<K, V> newEntry, UpdaterOrKeeper<S> updateOrKeep)
+    override def AddOrGetEntry(hash: Int, entry: Entry[K, V]): SMap[K, V] =
+      if (hash > this.hash) new Leaf2(this, entry)
+      else if (hash < this.hash) new Leaf2(entry, this)
+      else this
 
-    //   // /// <inheritdoc />
-    //   // public sealed override SMap<K, V> AddOrGetEntry(int hash, Entry entry) =>
-    //   //     hash > Hash ? new Leaf2(this, entry) : hash < Hash ? new Leaf2(entry, this) : (SMap<K, V>)this
+    override def ReplaceEntry(
+        hash: Int,
+        oldEntry: Entry[K, V],
+        newEntry: Entry[K, V]
+    ): SMap[K, V] = if (this == oldEntry) newEntry else oldEntry
 
-    //   // /// <inheritdoc />
-    //   // public sealed override SMap<K, V> ReplaceEntry(int hash, Entry oldEntry, Entry newEntry) =>
-    //   //     this == oldEntry ? newEntry : oldEntry
-
-    //   // internal sealed override SMap<K, V> RemoveEntry(Entry removedEntry) =>
-    //   //     this == removedEntry ? Empty : this
+    override def RemoveEntry(entry: Entry[K, V]): SMap[K, V] =
+      if (this == entry) SMap.empty else this
   }
 
-  final class KVEntry[K, V](hash: Int, key: K, value: V)
+  final case class KVEntry[K, V](hash: Int, key: K, value: V)
       extends Entry[K, V](hash) {
 
     override def getEntryOrNull(hash: Int, key: Int): KVEntry[K, V] = ???
 
+    override def Update(newEntry: KVEntry[K, V]): Entry[K, V] = ???
+
+    override def UpdateOrKeep[S](
+        state: S,
+        newEntry: KVEntry[K, V],
+        updateOrKeep: UpdaterOrKeeper[S]
+    ): Entry[K, V] = ???
   }
+
+  final case class Leaf2[K, V](e0: Entry[K, V], e1: Entry[K, V])
+      extends SMap[K, V] {}
 }
