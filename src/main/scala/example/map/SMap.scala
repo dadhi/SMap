@@ -1,6 +1,6 @@
 package example.map
 
-trait SHashMap[K, V] {
+trait SHashMap[K, +V] {
 
   val count: Int = 0
 
@@ -17,7 +17,7 @@ trait SHashMap[K, V] {
       state: S,
       newEntry: KVEntry,
       updateOrKeep: UpdaterOrKeeper[S]
-  ): Entry
+  ): Entry = null;
 
   trait Entry extends SHashMap[K, V] {
 
@@ -70,4 +70,7 @@ trait SHashMap[K, V] {
   }
 }
 
-object SHashMap {}
+object SHashMap {
+  case object Empty extends SHashMap[Any, Nothing]
+  def empty[K, V]: SHashMap[K, V] = Empty.asInstanceOf[SHashMap[K, V]]
+}
