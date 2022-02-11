@@ -11,8 +11,4 @@ class HelloSpec extends AnyFunSuite {
     val p = { Json.parse(_: String) }
     println(p.getClass.getSimpleName)
   }
-
-  test("Empty map is empty map") {
-    assert(SHashMap.empty == SHashMap.empty)
-  }
 }

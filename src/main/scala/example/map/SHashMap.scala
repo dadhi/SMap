@@ -24,8 +24,8 @@ trait SHashMap[K, +V] {
     */
   def AddOrGetEntry(hash: Int, entry: Entry): SHashMap[K, V] = entry;
 
-  /** Returns the new map with old entry replaced by the new entry. Note that
-    * the old entry should be present
+  /** Returns the new map with old entry replaced by the new entry. 
+    * Note that the old entry should be present
     */
   def ReplaceEntry(
       hash: Int,
@@ -34,7 +34,7 @@ trait SHashMap[K, +V] {
   ): SHashMap[K, V] = this;
 
   /** Removes the certainly present old entry and returns the new map without
-    * it.</summary>
+    * the entry.</summary>
     */
   def RemoveEntry(entry: Entry): SHashMap[K, V] = this;
 
