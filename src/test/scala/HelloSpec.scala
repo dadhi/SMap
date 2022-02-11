@@ -1,6 +1,5 @@
 import org.scalatest.funsuite._
 import play.api.libs.json._
-import example.map.SHashMap
 
 class HelloSpec extends AnyFunSuite {
   test("Hello should start with H") {
