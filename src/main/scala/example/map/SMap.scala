@@ -30,12 +30,12 @@ trait SMap[K, V] {
     * that the method cannot return the `null` - when the existing entry is not
     * found it will alway be the new map with the added entry.
     */
-  def AddOrGetEntry(hash: Int, entry: Entry[K, V]): SMap[K, V] = entry
+  def addOrGetEntry(hash: Int, entry: Entry[K, V]): SMap[K, V] = entry
 
   /** Returns the new map with old entry replaced by the new entry. Note that
     * the old entry should be present
     */
-  def ReplaceEntry(
+  def replaceEntry(
       hash: Int,
       oldEntry: Entry[K, V],
       newEntry: Entry[K, V]
@@ -44,7 +44,7 @@ trait SMap[K, V] {
   /** Removes the certainly present old entry and returns the new map without
     * the entry.
     */
-  protected def RemoveEntry(entry: Entry[K, V]): SMap[K, V] = this
+  protected def removeEntry(entry: Entry[K, V]): SMap[K, V] = this
 
   /** The function is supposed to return the entry different from the oldEntry
     * to update, and return the oldEntry to keep it.
@@ -78,28 +78,28 @@ object SMap {
 
     /** Updating the entry with the new one
       */
-    def Update(newEntry: KVEntry[K, V]): Entry[K, V]
+    def update(newEntry: KVEntry[K, V]): Entry[K, V]
 
     /** Updating the entry with the new one using the `update` method
       */
-    def UpdateOrKeep[S](
+    def updateOrKeep[S](
         state: S,
         newEntry: KVEntry[K, V],
         updateOrKeep: UpdaterOrKeeper[S]
     ): Entry[K, V]
 
-    override def AddOrGetEntry(hash: Int, entry: Entry[K, V]): SMap[K, V] =
+    override def addOrGetEntry(hash: Int, entry: Entry[K, V]): SMap[K, V] =
       if (hash > this.hash) new Leaf2(this, entry)
       else if (hash < this.hash) new Leaf2(entry, this)
       else this
 
-    override def ReplaceEntry(
+    override def replaceEntry(
         hash: Int,
         oldEntry: Entry[K, V],
         newEntry: Entry[K, V]
     ): SMap[K, V] = if (this == oldEntry) newEntry else oldEntry
 
-    override def RemoveEntry(entry: Entry[K, V]): SMap[K, V] =
+    override def removeEntry(entry: Entry[K, V]): SMap[K, V] =
       if (this == entry) SMap.empty else this
   }
 
@@ -108,9 +108,9 @@ object SMap {
 
     override def getEntryOrNull(hash: Int, key: Int): KVEntry[K, V] = ???
 
-    override def Update(newEntry: KVEntry[K, V]): Entry[K, V] = ???
+    override def update(newEntry: KVEntry[K, V]): Entry[K, V] = ???
 
-    override def UpdateOrKeep[S](
+    override def updateOrKeep[S](
         state: S,
         newEntry: KVEntry[K, V],
         updateOrKeep: UpdaterOrKeeper[S]
