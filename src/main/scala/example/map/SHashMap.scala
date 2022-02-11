@@ -1,23 +1,49 @@
 package example.map
 
 trait SHashMap[K, +V] {
+  import SHashMap._
+
+  /** Indicates that the map is empty
+    */
+  def isEmpty: Boolean = this eq Empty;
 
   val count: Int = 0
 
   private def getMinHashEntryOrNull: Entry = null;
   private def getMaxHashEntryOrNull: Entry = null;
 
+  /** Lookup for the entry by hash. If nothing the method returns `null`
+    */
   private def getEntryOrNull(hash: Int): Entry = null;
 
+  /** Returns the found entry with the same hash or the new map with added new
+    * entry. Note that the empty map will return the entry the same as if the
+    * entry was found - so the consumer should check for the empty map. Note
+    * that the method cannot return the `null` - when the existing entry is not
+    * found it will alway be the new map with the added entry.
+    */
+  def AddOrGetEntry(hash: Int, entry: Entry): SHashMap[K, V] = entry;
+
+  /** Returns the new map with old entry replaced by the new entry. Note that
+    * the old entry should be present
+    */
+  def ReplaceEntry(
+      hash: Int,
+      oldEntry: Entry,
+      newEntry: Entry
+  ): SHashMap[K, V] = this;
+
+  /** Removes the certainly present old entry and returns the new map without
+    * it.</summary>
+    */
+  def RemoveEntry(entry: Entry): SHashMap[K, V] = this;
+
+  /** The function is supposed to return the entry different from the oldEntry
+    * to update, and return the oldEntry to keep it.
+    */
   type UpdaterOrKeeper[S] = ((S, KVEntry, KVEntry) => KVEntry) {
     def apply(state: S, oldEntry: KVEntry, newEntry: KVEntry): KVEntry
   }
-
-  def UpdateOrKeep[S](
-      state: S,
-      newEntry: KVEntry,
-      updateOrKeep: UpdaterOrKeeper[S]
-  ): Entry = null;
 
   trait Entry extends SHashMap[K, V] {
 
