@@ -74,7 +74,7 @@ object SMap {
 
     /** Lookup for the entry by Hash and Key
       */
-    def getEntryOrNull(hash: Int, key: Int): KVEntry[K, V]
+    def getEntryOrNull(hash: Int, key: K): KVEntry[K, V]
 
     /** Updating the entry with the new one
       */
@@ -106,15 +106,23 @@ object SMap {
   final case class KVEntry[K, V](hash: Int, key: K, value: V)
       extends Entry[K, V](hash) {
 
-    override def getEntryOrNull(hash: Int, key: Int): KVEntry[K, V] = ???
+    override val count: Int = 1
 
-    override def update(newEntry: KVEntry[K, V]): Entry[K, V] = ???
+    override def getEntryOrNull(hash: Int, key: K): KVEntry[K, V] =
+      if (this.hash == hash && this.key == key) this else null
+
+    override def update(newEntry: KVEntry[K, V]): Entry[K, V] =
+      if (this.key == newEntry.key) newEntry
+      else ??? // todo @wip this.WithConflicting(newEntry)
 
     override def updateOrKeep[S](
         state: S,
         newEntry: KVEntry[K, V],
         updateOrKeep: UpdaterOrKeeper[S]
-    ): Entry[K, V] = ???
+    ): Entry[K, V] =
+      if (this.key != newEntry.key) ??? //this.WithConflicting(newEntry);
+      else if (updateOrKeep(state, this, newEntry) ne this) newEntry
+      else this
   }
 
   final case class Leaf2[K, V](e0: Entry[K, V], e1: Entry[K, V])
