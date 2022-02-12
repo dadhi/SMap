@@ -8,20 +8,20 @@ class SMapSpec extends AnyFunSuite {
   test("Empty map isEmpty") {
     assert(SMap.empty.isEmpty)
   }
-  test("Map of one item is not Empty") {
-    assert(Map(1 -> 2).isEmpty == false)
+  test("map of one item is not Empty") {
+    assert(SMap(1 -> 2).isEmpty == false)
   }
   test("Maps of two equal items are equal") {
     assert(SMap("a" -> 2) == SMap("a" -> 2))
   }
-  test("Maps of two items is not equal to the Map of one") {
+  test("Maps of two items is not equal to the map of one") {
     assert(SMap("a" -> 2, "b" -> 3) != SMap("a" -> 2))
   }
-  test("Lookup for the existing key should succeed in Map of one item") {
+  test("Lookup for the existing key should succeed in map of one item") {
     assert(SMap("a" -> 2).getOrElse("a", 0) == 2)
   }
   test(
-    "Adding two items with the same keys should keep the last item only (the same behavior as Map)"
+    "Adding two items with the same keys should keep the last item only (the same behavior as map)"
   ) {
     val m = SMap(1 -> "a", 1 -> "b")
     assert(m.size == 1)
@@ -43,14 +43,41 @@ class SMapSpec extends AnyFunSuite {
     assert(m(SameHash(1)) == "a")
     assert(m(SameHash(2)) == "c")
   }
-  test("Lookup for the non-existing key should succeed in Map of one item") {
+  test("Lookup for the non-existing key should succeed in map of one item") {
     assert(SMap("a" -> 2).get("b").isEmpty)
   }
-  test("In Map of N items I call lookup for all items") {
+  test("In map of N items I call lookup for all items") {
     val m = SMap(1 -> "a", 2 -> "b", 3 -> "c")
     assert(m(1) contains "a")
     assert(m(2) contains "b")
     assert(m(3) contains "c")
+  }
+  test("Remove from empty map should return empty map") {
+    assert(SMap.empty.remove(1).isEmpty)
+  }
+  test("Remove existing key from 1 item map should return empty map") {
+    assert(SMap(1 -> "a").remove(1).isEmpty)
+  }
+  test("Remove non-existing key from 1 item map should keep the original map") {
+    val m = SMap(1 -> "a")
+    assert(m.remove(2) eq m)
+  }
+  test("Remove existing key from 2 item map should return the map without the key") {
+    val m = SMap(1 -> "a", 2 -> "b")
+    val r2 = m.remove(1)
+    assert(r2.contains(1) == false)
+    assert(r2.contains(2) == true)
+
+    val r1 = m.remove(2)
+    assert(r1.contains(1) == true)
+    assert(r1.contains(2) == false)
+  }
+  test("Remove existing key from 3 item map should return the map without the key") {
+    val m = SMap(1 -> "a", 2 -> "b", 3 -> "c")
+    val r = m.remove(2)
+    assert(r.size == 2)
+    assert(r.contains(1))
+    assert(r.contains(3))
   }
 }
 

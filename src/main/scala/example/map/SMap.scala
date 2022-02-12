@@ -62,20 +62,21 @@ trait SMap[K, V] {
   /** Adds or updates (no in-place mutation) the map with the new entry, always
     * returning a new map
     */
-  def addOrUpdateEntry(newEntry: KVEntry[K, V]): SMap[K, V] = addOrGetEntry(
-    newEntry
-  ) match {
-    case entry: Entry[K, V] if (entry ne newEntry) =>
-      replaceEntry(entry, entry.update(newEntry))
-    case newMap => newMap
-  }
+  def addOrUpdateEntry(newEntry: KVEntry[K, V]): SMap[K, V] =
+    addOrGetEntry(newEntry) match {
+      case entry: Entry[K, V] if (entry ne newEntry) =>
+        replaceEntry(entry, entry.update(newEntry))
+      case newMap => newMap
+    }
 
-  def get(key: K): Option[V] = getEntryOrNull(key.hashCode) match {
-    case KVEntry(_, k, v) => if (k == key) Some(v) else None
-    case HashConflictingEntry(_, conflicts) =>
-      conflicts.find(_.key == key).map(_.value)
-    case _ => None
-  }
+  def get(key: K): Option[V] = if (isEmpty) None
+  else
+    getEntryOrNull(key.hashCode) match {
+      case KVEntry(_, k, v) => if (k == key) Some(v) else None
+      case HashConflictingEntry(_, conflicts) =>
+        conflicts.find(_.key == key).map(_.value)
+      case _ => None
+    }
 
   def getOrElse[V1 >: V](key: K, default: => V1): V1 = get(key) match {
     case Some(v) => v
@@ -98,7 +99,43 @@ trait SMap[K, V] {
 
   /** Tests whether this map contains a key.
     */
-  def contains(key: K): Boolean = get(key).isDefined
+  def contains(key: K): Boolean = if (isEmpty) false
+  else
+    getEntryOrNull(key.hashCode) match {
+      case KVEntry(_, k, _) => k == key
+      case HashConflictingEntry(_, conflicts) =>
+        conflicts.exists(_.key == key)
+      case _ => false
+    }
+
+  /** Returns the new map without the specified hash and key (if found) or
+    * returns the same map otherwise
+    */
+  def remove(key: K) = if (isEmpty) this
+  else
+    getEntryOrNull(key.hashCode) match {
+      case e: KVEntry[K, V] => removeEntry(e)
+      case e: HashConflictingEntry[K, V] => {
+        val cs = e.conflicts
+        val i = cs.indexWhere(_.key == key)
+        if (i != -1) {
+          val entryToReplace =
+            if (cs.length == 2)
+              if (i == 0) cs(1) else cs(0)
+            else {
+              val newConflicts = new Array[KVEntry[K, V]](cs.length - 1)
+              var j = 0
+              for (item <- cs if j != i) {
+                newConflicts(j) = item
+                j += 1
+              }
+              HashConflictingEntry(e.hash, newConflicts)
+            }
+          replaceEntry(e, entryToReplace)
+        } else this
+      }
+      case _ => this
+    }
 }
 
 object SMap {
