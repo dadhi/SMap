@@ -7,7 +7,7 @@ import scala.reflect.ClassTag
   * semi-immutable data structure which may be used mostly as immutable and
   * additionally to have holes for values to be set or updated later. The value
   * location is fixed in memory so you may grab a reference to the SMap.Entry
-  * and update it later without worries of SMap stucture additions or
+  * and update it later without worries of SMap structure additions or
   * modifications.
   */
 trait SMap[K, V] {
@@ -251,20 +251,47 @@ object SMap {
       if (e0 == entry) e1 else e0
   }
 
-  final case class Leaf2Plus[K, V](plus: Entry[K, V], l: Leaf2[K, V])
+  final case class Leaf2Plus[K, V](p: Entry[K, V], l: Leaf2[K, V])
       extends SMap[K, V] {
 
-    override def size = plus.size + l.e0.size + l.e1.size
+    override def size = p.size + l.e0.size + l.e1.size
     override def getMinHashEntryOrNull =
-      if (plus.hash < l.e0.hash) plus else l.e0
+      if (p.hash < l.e0.hash) p else l.e0
     override def getMaxHashEntryOrNull =
-      if (plus.hash > l.e1.hash) plus else l.e1
+      if (p.hash > l.e1.hash) p else l.e1
 
     override def getEntryOrNull(hash: Int): Entry[K, V] = hash match {
-      case plus.hash => plus
+      case p.hash    => p
       case l.e0.hash => l.e0
       case l.e1.hash => l.e1
       case _         => null
     }
+
+    override def addOrGetEntry(entry: Entry[K, V]): SMap[K, V] =
+      entry.hash match {
+        case p.hash    => p
+        case l.e0.hash => l.e0
+        case l.e1.hash => l.e1
+        case _         => Leaf2PlusPlus(entry, this)
+      }
+
+    override def replaceEntry(
+        oldEntry: Entry[K, V],
+        newEntry: Entry[K, V]
+    ): SMap[K, V] =
+      if (oldEntry == p) Leaf2Plus(newEntry, l)
+      else if (oldEntry == l.e0) Leaf2Plus(p, new Leaf2(newEntry, l.e1))
+      else Leaf2Plus(p, new Leaf2(l.e0, newEntry))
+
+    override protected def removeEntry(entry: Entry[K, V]): SMap[K, V] =
+      if (entry == p) l
+      else if (entry == l.e0)
+        (if (p.hash < l.e1.hash) Leaf2(p, l.e1)
+         else new Leaf2(l.e1, p))
+      else (if (p.hash < l.e0.hash) Leaf2(p, l.e0)
+            else new Leaf2(l.e0, p))
   }
+
+  final case class Leaf2PlusPlus[K, V](p: Entry[K, V], lp: Leaf2Plus[K, V])
+      extends SMap[K, V] {}
 }
