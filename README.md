@@ -6,7 +6,7 @@ Fast persistent immutable Map data-structure for Scala with minimal memory footp
 
 The SMap is based on the ImMap from my .NET C# library https://github.com/dadhi/ImTools  
 
-Btw, **S** in Map is for **Super**.
+Btw, **S** in Map is for **Speedy**.
 
 TBD:
 
