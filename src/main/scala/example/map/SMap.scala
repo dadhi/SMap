@@ -65,6 +65,10 @@ object SMap {
 
   def empty[K, V]: SMap[K, V] = Empty.asInstanceOf[SMap[K, V]]
 
+  def apply[K, V](item: (K, V)): SMap[K, V] = KVEntry(item._1.hashCode(), item._1, item._2)
+
+  def apply[K, V](items: (K, V)*): SMap[K, V] = ???
+
   abstract class Entry[K, V](hash: Int) extends SMap[K, V] {
 
     override def getMinHashEntryOrNull: Entry[K, V] = this
@@ -113,16 +117,33 @@ object SMap {
 
     override def update(newEntry: KVEntry[K, V]): Entry[K, V] =
       if (this.key == newEntry.key) newEntry
-      else ??? // todo @wip this.WithConflicting(newEntry)
+      else HashConflictingEntry(this.hash, this, newEntry)
 
     override def updateOrKeep[S](
         state: S,
         newEntry: KVEntry[K, V],
         updateOrKeep: UpdaterOrKeeper[S]
     ): Entry[K, V] =
-      if (this.key != newEntry.key) ??? //this.WithConflicting(newEntry);
+      if (this.key != newEntry.key)
+        HashConflictingEntry(this.hash, this, newEntry)
       else if (updateOrKeep(state, this, newEntry) ne this) newEntry
       else this
+  }
+
+  case class HashConflictingEntry[K, V](
+      hash: Int,
+      conflicts: KVEntry[K, V]*
+  ) extends Entry[K, V](hash) {
+
+    override def getEntryOrNull(hash: Int, key: K): KVEntry[K, V] = ???
+
+    override def update(newEntry: KVEntry[K, V]): Entry[K, V] = ???
+
+    override def updateOrKeep[S](
+        state: S,
+        newEntry: KVEntry[K, V],
+        updateOrKeep: UpdaterOrKeeper[S]
+    ): Entry[K, V] = ???
   }
 
   final case class Leaf2[K, V](e0: Entry[K, V], e1: Entry[K, V])
