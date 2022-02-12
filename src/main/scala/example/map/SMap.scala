@@ -57,6 +57,15 @@ trait SMap[K, V] {
           newEntry: KVEntry[K, V]
       ): KVEntry[K, V]
     }
+
+  def get[K, V](hash: Int, key: K) : Option[V] = {
+      var e = getEntryOrNull(hash);
+      e match {
+        case KVEntry(_, k, v) => if (k == key) Some(v.asInstanceOf[V]) else None 
+        case HashConflictingEntry(_, conflicts) => conflicts.find(key.==).map(_.value.asInstanceOf[V])
+        case _ => None
+      }
+  }
 }
 
 object SMap {
@@ -123,7 +132,7 @@ object SMap {
 
     override def update(newEntry: KVEntry[K, V]): Entry[K, V] =
       if (this.key == newEntry.key) newEntry
-      else HashConflictingEntry(this.hash, this, newEntry)
+      else HashConflictingEntry(this.hash, Array(this, newEntry))
 
     override def updateOrKeep[S](
         state: S,
@@ -131,14 +140,14 @@ object SMap {
         updateOrKeep: UpdaterOrKeeper[S]
     ): Entry[K, V] =
       if (this.key != newEntry.key)
-        HashConflictingEntry(this.hash, this, newEntry)
+        HashConflictingEntry(this.hash, Array(this, newEntry))
       else if (updateOrKeep(state, this, newEntry) ne this) newEntry
       else this
   }
 
   case class HashConflictingEntry[K, V](
       hash: Int,
-      conflicts: KVEntry[K, V]*
+      conflicts: Array[KVEntry[K, V]]
   ) extends Entry[K, V](hash) {
 
     override def getEntryOrNull(hash: Int, key: K): KVEntry[K, V] = ???

@@ -17,4 +17,10 @@ class SMapSpec extends AnyFunSuite {
   test("Maps of two items is not equal to the Map of one") {
     assert(Map("a" -> 2, "b" -> 3) != Map("a" -> 2))
   }
+  test("Lookup for the existing key should succeed in Map of one item") {
+    assert(Map("a" -> 2).get("a").getOrElse(0) == 2)
+  }
+  test("Lookup for the non-existing key should succeed in Map of one item") {
+    assert(Map("a" -> 2).get("b").isEmpty)
+  }
 }
