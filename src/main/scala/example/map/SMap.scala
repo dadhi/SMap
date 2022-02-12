@@ -58,13 +58,14 @@ trait SMap[K, V] {
       ): KVEntry[K, V]
     }
 
-  def get[K, V](hash: Int, key: K) : Option[V] = {
-      var e = getEntryOrNull(hash);
-      e match {
-        case KVEntry(_, k, v) => if (k == key) Some(v.asInstanceOf[V]) else None 
-        case HashConflictingEntry(_, conflicts) => conflicts.find(key.==).map(_.value.asInstanceOf[V])
-        case _ => None
-      }
+  def get[K, V](key: K): Option[V] = {
+    var e = getEntryOrNull(key.hashCode)
+    e match {
+      case KVEntry(_, k, v) => if (k == key) Some(v.asInstanceOf[V]) else None
+      case HashConflictingEntry(_, conflicts) =>
+        conflicts.find(key.==).map(_.value.asInstanceOf[V])
+      case _ => None
+    }
   }
 }
 
@@ -82,7 +83,11 @@ object SMap {
   def apply[K, V](item1: (K, V), item2: (K, V)): SMap[K, V] =
     Leaf2(newEntry(item1), newEntry(item2))
 
-  def apply[K, V](items: (K, V)*): SMap[K, V] = ???
+  def apply[K, V](items: (K, V)*): SMap[K, V] = {
+    val m = empty[K, V]
+    for (i <- items) m.addOrGetEntry(i._1.hashCode, newEntry(i))
+    m
+  }
 
   abstract class Entry[K, V](hash: Int) extends SMap[K, V] {
 

@@ -1,4 +1,4 @@
-import org.scalatest.funsuite._
+import org.scalatest._, org.scalatest.funsuite._
 import example.map.SMap
 
 class SMapSpec extends AnyFunSuite {
@@ -12,15 +12,21 @@ class SMapSpec extends AnyFunSuite {
     assert(Map(1 -> 2).isEmpty == false)
   }
   test("Maps of two equal items are equal") {
-    assert(Map("a" -> 2) == Map("a" -> 2))
+    assert(SMap("a" -> 2) == SMap("a" -> 2))
   }
   test("Maps of two items is not equal to the Map of one") {
-    assert(Map("a" -> 2, "b" -> 3) != Map("a" -> 2))
+    assert(SMap("a" -> 2, "b" -> 3) != SMap("a" -> 2))
   }
   test("Lookup for the existing key should succeed in Map of one item") {
-    assert(Map("a" -> 2).get("a").getOrElse(0) == 2)
+    assert(SMap("a" -> 2).get("a").getOrElse(0) == 2)
   }
   test("Lookup for the non-existing key should succeed in Map of one item") {
-    assert(Map("a" -> 2).get("b").isEmpty)
+    assert(SMap("a" -> 2).get("b").isEmpty)
   }
+  // test("In Map of N items I call lookup for all items") {
+  //   val m = SMap(1 -> "a", 2 -> "b", 3 -> "c")
+  //   assert(m.get(1) contains "a")
+  //   assert(m.get(2) contains "b")
+  //   assert(m.get(3) contains "c")
+  // }
 }
