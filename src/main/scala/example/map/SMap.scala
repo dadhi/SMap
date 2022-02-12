@@ -220,5 +220,51 @@ object SMap {
   }
 
   final case class Leaf2[K, V](e0: Entry[K, V], e1: Entry[K, V])
-      extends SMap[K, V] {}
+      extends SMap[K, V] {
+
+    assert(e0.hash < e1.hash)
+
+    override def size = e0.size + e1.size
+    override def getMinHashEntryOrNull = e0
+    override def getMaxHashEntryOrNull = e1
+
+    override def getEntryOrNull(hash: Int): Entry[K, V] = hash match {
+      case e0.hash => e0
+      case e1.hash => e1
+      case _       => null
+    }
+
+    override def addOrGetEntry(entry: Entry[K, V]): SMap[K, V] =
+      entry.hash match {
+        case e0.hash => e0
+        case e1.hash => e1
+        case _       => Leaf2Plus1(entry, this)
+      }
+
+    override def replaceEntry(
+        oldEntry: Entry[K, V],
+        newEntry: Entry[K, V]
+    ): SMap[K, V] =
+      if (oldEntry == e0) Leaf2(newEntry, e1) else Leaf2(e0, newEntry)
+
+    override protected def removeEntry(entry: Entry[K, V]): SMap[K, V] =
+      if (e0 == entry) e1 else e0
+  }
+
+  final case class Leaf2Plus1[K, V](plus: Entry[K, V], l: Leaf2[K, V])
+      extends SMap[K, V] {
+
+    override def size = plus.size + l.e0.size + l.e1.size
+    override def getMinHashEntryOrNull =
+      if (plus.hash < l.e0.hash) plus else l.e0
+    override def getMaxHashEntryOrNull =
+      if (plus.hash > l.e1.hash) plus else l.e1
+
+    override def getEntryOrNull(hash: Int): Entry[K, V] = hash match {
+      case plus.hash => plus
+      case l.e0.hash => l.e0
+      case l.e1.hash => l.e1
+      case _         => null
+    }
+  }
 }

@@ -46,12 +46,12 @@ class SMapSpec extends AnyFunSuite {
   test("Lookup for the non-existing key should succeed in Map of one item") {
     assert(SMap("a" -> 2).get("b").isEmpty)
   }
-  // test("In Map of N items I call lookup for all items") {
-  //   val m = SMap(1 -> "a", 2 -> "b", 3 -> "c")
-  //   assert(m.get(1) contains "a")
-  //   assert(m.get(2) contains "b")
-  //   assert(m.get(3) contains "c")
-  // }
+  test("In Map of N items I call lookup for all items") {
+    val m = SMap(1 -> "a", 2 -> "b", 3 -> "c")
+    assert(m(1) contains "a")
+    assert(m(2) contains "b")
+    assert(m(3) contains "c")
+  }
 }
 
 case class SameHash(val n: Int) {
