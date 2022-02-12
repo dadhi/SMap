@@ -17,7 +17,7 @@ trait SMap[K, V] {
     */
   def isEmpty: Boolean = this eq Empty
 
-  val count: Int = 0
+  def size: Int = 0
 
   protected def getMinHashEntryOrNull: Entry[K, V] = null
   protected def getMaxHashEntryOrNull: Entry[K, V] = null
@@ -32,13 +32,12 @@ trait SMap[K, V] {
     * that the method cannot return the `null` - when the existing entry is not
     * found it will alway be the new map with the added entry.
     */
-  def addOrGetEntry(hash: Int, entry: Entry[K, V]): SMap[K, V] = entry
+  def addOrGetEntry(entry: Entry[K, V]): SMap[K, V] = entry
 
   /** Returns the new map with old entry replaced by the new entry. Note that
     * the old entry should be present
     */
   def replaceEntry(
-      hash: Int,
       oldEntry: Entry[K, V],
       newEntry: Entry[K, V]
   ): SMap[K, V] = this
@@ -60,21 +59,46 @@ trait SMap[K, V] {
       ): KVEntry[K, V]
     }
 
-  def get[K, V](key: K): Option[V] = {
-    var e = getEntryOrNull(key.hashCode)
-    e match {
-      case KVEntry(_, k, v) =>
-        if (k == key) Some(v.asInstanceOf[V])
-        else None // todo: @wip can we avoid the cast here?
-      case HashConflictingEntry(_, conflicts) =>
-        conflicts
-          .find(key.==)
-          .map(
-            _.value.asInstanceOf[V]
-          ) // todo: @wip can we avoid the cast here?
-      case _ => None
-    }
+  /** Adds or updates (no in-place mutation) the map with the new entry, always
+    * returning a new map
+    */
+  def addOrUpdateEntry(newEntry: KVEntry[K, V]): SMap[K, V] = addOrGetEntry(
+    newEntry
+  ) match {
+    case entry: Entry[K, V] if (entry ne newEntry) =>
+      replaceEntry(entry, entry.update(newEntry))
+    case newMap => newMap
   }
+
+  def get(key: K): Option[V] = getEntryOrNull(key.hashCode) match {
+    case KVEntry(_, k, v) => if (k == key) Some(v) else None
+    case HashConflictingEntry(_, conflicts) =>
+      conflicts.find(_.key == key).map(_.value)
+    case _ => None
+  }
+
+  def getOrElse[V1 >: V](key: K, default: => V1): V1 = get(key) match {
+    case Some(v) => v
+    case None    => default
+  }
+
+  @throws[NoSuchElementException]
+  def apply(key: K): V = get(key) match {
+    case Some(value) => value
+    case None        => default(key)
+  }
+
+  /** Defines the default value computation for the map, returned when a key is
+    * not found. The method implemented here throws an exception, but it might
+    * be overridden in subclasses.
+    */
+  @throws[NoSuchElementException]
+  def default(key: K): V =
+    throw new NoSuchElementException("key not found: " + key)
+
+  /** Tests whether this map contains a key.
+    */
+  def contains(key: K): Boolean = get(key).isDefined
 }
 
 object SMap {
@@ -88,16 +112,13 @@ object SMap {
 
   def apply[K, V](item: (K, V)): SMap[K, V] = newEntry(item)
 
-  def apply[K, V](item1: (K, V), item2: (K, V)): SMap[K, V] =
-    Leaf2(newEntry(item1), newEntry(item2))
-
   def apply[K, V](items: (K, V)*): SMap[K, V] = {
-    val m = empty[K, V]
-    for (i <- items) m.addOrGetEntry(i._1.hashCode, newEntry(i))
+    var m = empty[K, V]
+    for (i <- items) m = m.addOrUpdateEntry(newEntry(i))
     m
   }
 
-  abstract class Entry[K, V](hash: Int) extends SMap[K, V] {
+  abstract class Entry[K, V](val hash: Int) extends SMap[K, V] {
 
     override def getMinHashEntryOrNull: Entry[K, V] = this
     override def getMaxHashEntryOrNull: Entry[K, V] = this
@@ -120,13 +141,12 @@ object SMap {
         updateOrKeep: UpdaterOrKeeper[S]
     ): Entry[K, V]
 
-    override def addOrGetEntry(hash: Int, entry: Entry[K, V]): SMap[K, V] =
-      if (hash > this.hash) new Leaf2(this, entry)
-      else if (hash < this.hash) new Leaf2(entry, this)
+    override def addOrGetEntry(entry: Entry[K, V]): SMap[K, V] =
+      if (entry.hash > this.hash) new Leaf2(this, entry)
+      else if (entry.hash < this.hash) new Leaf2(entry, this)
       else this
 
     override def replaceEntry(
-        hash: Int,
         oldEntry: Entry[K, V],
         newEntry: Entry[K, V]
     ): SMap[K, V] = if (this == oldEntry) newEntry else oldEntry
@@ -135,10 +155,10 @@ object SMap {
       if (this == entry) SMap.empty else this
   }
 
-  final case class KVEntry[K, V](hash: Int, key: K, value: V)
+  final case class KVEntry[K, V](override val hash: Int, key: K, value: V)
       extends Entry[K, V](hash) {
 
-    override val count: Int = 1
+    override def size: Int = 1
 
     override def getEntryOrNull(hash: Int, key: K): KVEntry[K, V] =
       if (this.hash == hash && this.key == key) this else null
@@ -170,11 +190,11 @@ object SMap {
   }
 
   case class HashConflictingEntry[K, V](
-      hash: Int,
+      override val hash: Int,
       conflicts: Array[KVEntry[K, V]]
   ) extends Entry[K, V](hash) {
 
-    override val count: Int = conflicts.length
+    override def size: Int = conflicts.length
 
     override def getEntryOrNull(hash: Int, key: K): KVEntry[K, V] =
       conflicts.find(_.key == key).getOrElse(null)
