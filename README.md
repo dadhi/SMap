@@ -10,5 +10,5 @@ Btw, **S** in Map is for **Super**.
 
 TBD:
 
-- [ ] Porting the minimal ImHashMap to SMap enough to test addition and lookup and benchmark with scalameter.
-- [ ] Create and ditribute the package (learn in the process).
+- [ ] Porting the minimal ImHashMap to SMap enough to test addition and lookup and benchmark with *scalameter*.
+- [ ] Create and distribute the package (learn in the process).
