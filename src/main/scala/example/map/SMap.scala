@@ -1,5 +1,7 @@
 package example.map
 
+import scala.reflect.ClassTag
+
 /** The type of value `V` is not covariant as in the `Map[K, +V]` because SMap
   * allows to modify the value inside the entry. So in a sense it is
   * semi-immutable data structure which may be used mostly as immutable and
@@ -61,9 +63,15 @@ trait SMap[K, V] {
   def get[K, V](key: K): Option[V] = {
     var e = getEntryOrNull(key.hashCode)
     e match {
-      case KVEntry(_, k, v) => if (k == key) Some(v.asInstanceOf[V]) else None
+      case KVEntry(_, k, v) =>
+        if (k == key) Some(v.asInstanceOf[V])
+        else None // todo: @wip can we avoid the cast here?
       case HashConflictingEntry(_, conflicts) =>
-        conflicts.find(key.==).map(_.value.asInstanceOf[V])
+        conflicts
+          .find(key.==)
+          .map(
+            _.value.asInstanceOf[V]
+          ) // todo: @wip can we avoid the cast here?
       case _ => None
     }
   }
@@ -137,7 +145,7 @@ object SMap {
 
     override def update(newEntry: KVEntry[K, V]): Entry[K, V] =
       if (this.key == newEntry.key) newEntry
-      else HashConflictingEntry(this.hash, Array(this, newEntry))
+      else HashConflictingEntry(this.hash, Array(newEntry, this))
 
     override def updateOrKeep[S](
         state: S,
@@ -145,9 +153,20 @@ object SMap {
         updateOrKeep: UpdaterOrKeeper[S]
     ): Entry[K, V] =
       if (this.key != newEntry.key)
-        HashConflictingEntry(this.hash, Array(this, newEntry))
+        HashConflictingEntry(this.hash, Array(newEntry, this))
       else if (updateOrKeep(state, this, newEntry) ne this) newEntry
       else this
+  }
+
+  private def appendOrReplace[T](
+      items: Array[T],
+      item: T,
+      i: Int = -1
+  )(implicit ev: ClassTag[T]): Array[T] = {
+    val newItems = new Array[T](if (i != -1) items.length else items.length + 1)
+    items.copyToArray(newItems)
+    newItems(if (i != -1) i else items.length) = item
+    newItems
   }
 
   case class HashConflictingEntry[K, V](
@@ -155,15 +174,29 @@ object SMap {
       conflicts: Array[KVEntry[K, V]]
   ) extends Entry[K, V](hash) {
 
-    override def getEntryOrNull(hash: Int, key: K): KVEntry[K, V] = ???
+    override val count: Int = conflicts.length
 
-    override def update(newEntry: KVEntry[K, V]): Entry[K, V] = ???
+    override def getEntryOrNull(hash: Int, key: K): KVEntry[K, V] =
+      conflicts.find(_.key == key).getOrElse(null)
+
+    override def update(newEntry: KVEntry[K, V]): Entry[K, V] = {
+      val i = conflicts.indexWhere(_.key == newEntry.key)
+      HashConflictingEntry(hash, appendOrReplace(conflicts, newEntry, i))
+    }
 
     override def updateOrKeep[S](
         state: S,
         newEntry: KVEntry[K, V],
         updateOrKeep: UpdaterOrKeeper[S]
-    ): Entry[K, V] = ???
+    ): Entry[K, V] = {
+      val key = newEntry.key
+      val i = conflicts.indexWhere(_.key == key)
+      if (i == -1)
+        HashConflictingEntry(hash, appendOrReplace(conflicts, newEntry))
+      else if (updateOrKeep(state, conflicts(i), newEntry) ne conflicts(i))
+        HashConflictingEntry(hash, appendOrReplace(conflicts, newEntry, i))
+      else this
+    }
   }
 
   final case class Leaf2[K, V](e0: Entry[K, V], e1: Entry[K, V])
