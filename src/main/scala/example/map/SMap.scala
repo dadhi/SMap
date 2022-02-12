@@ -238,7 +238,7 @@ object SMap {
       entry.hash match {
         case e0.hash => e0
         case e1.hash => e1
-        case _       => Leaf2Plus1(entry, this)
+        case _       => Leaf2Plus(entry, this)
       }
 
     override def replaceEntry(
@@ -251,7 +251,7 @@ object SMap {
       if (e0 == entry) e1 else e0
   }
 
-  final case class Leaf2Plus1[K, V](plus: Entry[K, V], l: Leaf2[K, V])
+  final case class Leaf2Plus[K, V](plus: Entry[K, V], l: Leaf2[K, V])
       extends SMap[K, V] {
 
     override def size = plus.size + l.e0.size + l.e1.size
