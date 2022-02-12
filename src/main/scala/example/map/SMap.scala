@@ -65,8 +65,12 @@ object SMap {
 
   def empty[K, V]: SMap[K, V] = Empty.asInstanceOf[SMap[K, V]]
 
-  def apply[K, V](item: (K, V)): SMap[K, V] = KVEntry(item._1.hashCode(), item._1, item._2)
+  def newEntry[K, V](item: (K, V)): KVEntry[K, V] = KVEntry(item._1.hashCode, item._1, item._2)
 
+  def apply[K, V](item: (K, V)): SMap[K, V] = newEntry(item)
+
+  def apply[K, V](item1: (K, V), item2: (K, V)): SMap[K, V] = Leaf2(newEntry(item1), newEntry(item2))
+ 
   def apply[K, V](items: (K, V)*): SMap[K, V] = ???
 
   abstract class Entry[K, V](hash: Int) extends SMap[K, V] {
