@@ -543,7 +543,11 @@ object SMap {
       }
   }
 
-  final case class Leaf5PlusPlus[K, V](p: Entry[K, V], l: Leaf5Plus[K, V])
-      extends SMap[K, V] {}
+  trait OnTheVergeOfBalance {
+    //def addOrGetEntry(hash: Int, ref Entry entry, ref ImHashMap<K, V> splitRight): SMap[K, V]
+  }
 
+  final case class Leaf5PlusPlus[K, V](p: Entry[K, V], l: Leaf5Plus[K, V])
+      extends SMap[K, V]
+      with OnTheVergeOfBalance {}
 }
