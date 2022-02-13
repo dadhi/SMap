@@ -352,7 +352,7 @@ object SMap {
         case l.p.hash    => l.p
         case l.l.e0.hash => l.l.e0
         case l.l.e1.hash => l.l.e1
-        case hash        => {
+        case hash => {
           // e0 and e1 are already sorted e0 < e1, we need to insert the pp, p, e into them in the right order,
           // so the result should be e0 < e1 < pp < p < e
           var (e, p_, pp, e0, e1) = (entry, p, l.p, l.l.e0, l.l.e1)
@@ -366,38 +366,60 @@ object SMap {
             }
           }
 
-          if (ph < pp.hash)
-          {
-              t = p_; p_ = pp; pp = t
-              if (ph < e1.hash)
-              {
-                  t = pp; pp = e1; e1 = t
-                  if (ph < e0.hash)
-                      t = e1; e1 = e0; e0 = t
-              }
+          if (ph < pp.hash) {
+            t = p_; p_ = pp; pp = t
+            if (ph < e1.hash) {
+              t = pp; pp = e1; e1 = t
+              if (ph < e0.hash)
+                t = e1; e1 = e0; e0 = t
+            }
           }
 
-          if (hash < p.hash)
-          {
-              t = e; e = p_; p_ = t
-              if (hash < pp.hash)
-              {
-                  e = p_; p_ = pp; pp = t
-                  if (hash < e1.hash)
-                  {
-                      t = pp; pp = e1; e1 = t
-                      if (hash < e0.hash)
-                          t = e1; e1 = e0; e0 = t
-                  }
+          if (hash < p.hash) {
+            t = e; e = p_; p_ = t
+            if (hash < pp.hash) {
+              e = p_; p_ = pp; pp = t
+              if (hash < e1.hash) {
+                t = pp; pp = e1; e1 = t
+                if (hash < e0.hash)
+                  t = e1; e1 = e0; e0 = t
               }
+            }
           }
 
           Leaf5(e0, e1, pp, p, e);
         }
       }
+
+    override def replaceEntry(
+        oldEntry: Entry[K, V],
+        newEntry: Entry[K, V]
+    ): SMap[K, V] =
+      if (oldEntry == p) Leaf2PlusPlus(newEntry, l)
+      else if (oldEntry == l.p) Leaf2PlusPlus(p, Leaf2Plus(newEntry, l.l))
+      else if (oldEntry == l.l.e0)
+        Leaf2PlusPlus(p, Leaf2Plus(l.p, Leaf2(newEntry, l.l.e1)))
+      else
+        Leaf2PlusPlus(p, Leaf2Plus(l.p, Leaf2(l.l.e0, newEntry)));
+
+    override protected def removeEntry(entry: Entry[K, V]): SMap[K, V] =
+      if (entry == p) l
+      else if (entry == l.p) Leaf2Plus(p, l.l)
+      else if (entry == l.l.e0)
+        (if (l.p.hash < l.l.e1.hash) Leaf2Plus(p, Leaf2(l.p, l.l.e1))
+         else Leaf2Plus(p, Leaf2(l.l.e1, l.p)))
+      else (if (l.p.hash < l.l.e0.hash) Leaf2Plus(p, Leaf2(l.p, l.l.e0))
+            else Leaf2Plus(p, Leaf2(l.l.e0, l.p)))
   }
 
-    final case class Leaf5[K, V](e0: Entry[K, V], e1: Entry[K, V], e2: Entry[K, V], e3: Entry[K, V], e4: Entry[K, V])
-      extends SMap[K, V] {
-      }
+  final case class Leaf5[K, V](
+      e0: Entry[K, V],
+      e1: Entry[K, V],
+      e2: Entry[K, V],
+      e3: Entry[K, V],
+      e4: Entry[K, V]
+  ) extends SMap[K, V] {
+
+    
+  }
 }
