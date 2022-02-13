@@ -532,7 +532,7 @@ object SMap {
   }
 
   trait OnTheVergeOfBalance[K, V] {
-    def addToBranch(entry: Entry[K, V]): Branch2[K, V]
+    protected def addToBranch(entry: Entry[K, V]): Branch2[K, V]
   }
 
   final case class Leaf5PlusPlus[K, V](p: Entry[K, V], l: Leaf5Plus[K, V])
