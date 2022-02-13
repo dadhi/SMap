@@ -628,7 +628,7 @@ object SMap {
       }
 
       if (left) Branch2(Leaf2(e0, e1), e2, l)
-      if (right) Branch2(l, lp, Leaf2(p, e))
+      else if (right) Branch2(l, lp, Leaf2(p, e))
       else Branch2(Leaf5(e0, e1, e2, e3, e4), lp, Leaf2(p, e))
     }
 
