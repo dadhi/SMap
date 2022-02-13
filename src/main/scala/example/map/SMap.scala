@@ -329,6 +329,75 @@ object SMap {
             else new Leaf2(l.e0, p))
   }
 
-  final case class Leaf2PlusPlus[K, V](p: Entry[K, V], lp: Leaf2Plus[K, V])
-      extends SMap[K, V] {}
+  final case class Leaf2PlusPlus[K, V](p: Entry[K, V], l: Leaf2Plus[K, V])
+      extends SMap[K, V] {
+    override def size: Int = p.size + l.size
+
+    override def getMinHashEntryOrNull = {
+      var m = l.getMinHashEntryOrNull
+      if (p.hash < m.hash) p else m
+    }
+
+    override def getMaxHashEntryOrNull = {
+      var m = l.getMaxHashEntryOrNull
+      if (p.hash > m.hash) p else m
+    }
+
+    override def getEntryOrNull(hash: Int) =
+      if (hash == p.hash) p else l.getEntryOrNull(hash)
+
+    override def addOrGetEntry(entry: Entry[K, V]): SMap[K, V] =
+      entry.hash match {
+        case p.hash      => p
+        case l.p.hash    => l.p
+        case l.l.e0.hash => l.l.e0
+        case l.l.e1.hash => l.l.e1
+        case hash        => {
+          // e0 and e1 are already sorted e0 < e1, we need to insert the pp, p, e into them in the right order,
+          // so the result should be e0 < e1 < pp < p < e
+          var (e, p_, pp, e0, e1) = (entry, p, l.p, l.l.e0, l.l.e1)
+          var t: Entry[K, V] = null
+          val (ph, pph) = (p_.hash, pp.hash)
+
+          if (pph < e1.hash) {
+            t = pp; pp = e1; e1 = t
+            if (pph < e0.hash) {
+              t = e0; e0 = e1; e1 = e0
+            }
+          }
+
+          if (ph < pp.hash)
+          {
+              t = p_; p_ = pp; pp = t
+              if (ph < e1.hash)
+              {
+                  t = pp; pp = e1; e1 = t
+                  if (ph < e0.hash)
+                      t = e1; e1 = e0; e0 = t
+              }
+          }
+
+          if (hash < p.hash)
+          {
+              t = e; e = p_; p_ = t
+              if (hash < pp.hash)
+              {
+                  e = p_; p_ = pp; pp = t
+                  if (hash < e1.hash)
+                  {
+                      t = pp; pp = e1; e1 = t
+                      if (hash < e0.hash)
+                          t = e1; e1 = e0; e0 = t
+                  }
+              }
+          }
+
+          Leaf5(e0, e1, pp, p, e);
+        }
+      }
+  }
+
+    final case class Leaf5[K, V](e0: Entry[K, V], e1: Entry[K, V], e2: Entry[K, V], e3: Entry[K, V], e4: Entry[K, V])
+      extends SMap[K, V] {
+      }
 }
