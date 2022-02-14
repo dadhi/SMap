@@ -19,6 +19,11 @@ trait SMap[K, V] {
 
   def size: Int = 0
 
+  /** Indicates that the map may grow tot Branch2 and therefore may require
+    * re-balance
+    */
+  protected def canGrowToBranch2 = false
+
   protected def getMinHashEntryOrNull: Entry[K, V] = null
   protected def getMaxHashEntryOrNull: Entry[K, V] = null
 
@@ -101,15 +106,15 @@ trait SMap[K, V] {
     * If the remapping function returns `Some(v)`, the mapping is updated with
     * the new value `v`. If the remapping function returns `None`, the mapping
     * is removed (or remains absent if initially absent). If the function itself
-    * throws an exception, the exception is rethrown, and the current mapping is
-    * left unchanged.
+    * throws an exception, the exception is re-thrown, and the current mapping
+    * is left unchanged.
     */
   def updatedWith(
       key: K
   )(remappingFunction: Option[V] => Option[V]): SMap[K, V] = {
-    val previousValue = get(key)
-    val nextValue = remappingFunction(previousValue)
-    (previousValue, nextValue) match {
+    val oldValue = get(key)
+    val newValue = remappingFunction(oldValue)
+    (oldValue, newValue) match {
       case (None, None)    => this
       case (Some(_), None) => removed(key)
       case (_, Some(v))    => updated(key, v)
@@ -415,7 +420,7 @@ object SMap {
           }
         }
 
-        Leaf5(e0, e1, lp, p_, e);
+        Leaf5(e0, e1, lp, p_, e)
       }
     }
 
@@ -428,7 +433,7 @@ object SMap {
       else if (oldEntry eq l.l.e0)
         Leaf2PlusPlus(p, Leaf2Plus(l.p, Leaf2(newEntry, l.l.e1)))
       else
-        Leaf2PlusPlus(p, Leaf2Plus(l.p, Leaf2(l.l.e0, newEntry)));
+        Leaf2PlusPlus(p, Leaf2Plus(l.p, Leaf2(l.l.e0, newEntry)))
 
     override protected def removeEntry(entry: Entry[K, V]): SMap[K, V] =
       if (entry eq p) l
@@ -534,8 +539,8 @@ object SMap {
     override protected def removeEntry(entry: Entry[K, V]): SMap[K, V] =
       if (p eq entry) l
       else {
-        var p_ = p; val ph = p_.hash;
-        var e0 = l.e0; var e1 = l.e1; var e2 = l.e2; var e3 = l.e3;
+        var p_ = p; val ph = p_.hash
+        var e0 = l.e0; var e1 = l.e1; var e2 = l.e2; var e3 = l.e3
         var e4 = l.e4
         var t: Entry[K, V] = null
         if (ph < e4.hash) {
@@ -562,13 +567,9 @@ object SMap {
       }
   }
 
-  trait OnTheVergeOfBalance[K, V] {
-    protected def addToBranch(entry: Entry[K, V]): Branch2[K, V]
-  }
-
   final case class Leaf5PlusPlus[K, V](p: Entry[K, V], l: Leaf5Plus[K, V])
-      extends SMap[K, V]
-      with OnTheVergeOfBalance[K, V] {
+      extends SMap[K, V] {
+    protected override def canGrowToBranch2 = true
 
     override def size = p.size + l.size
 
@@ -588,78 +589,78 @@ object SMap {
       else l.l.getEntryOrNull(hash)
 
     override def addOrGetEntry(entry: Entry[K, V]) = {
-      val foundEntry = getEntryOrNull(entry.hash)
-      if (foundEntry ne null) foundEntry else addToBranch(entry)
-    }
+      val hash = entry.hash
+      val foundEntry = getEntryOrNull(hash)
+      if (foundEntry ne null) foundEntry
+      else {
+        val ll = l.l
+        var e0 = ll.e0; var e1 = ll.e1; var e2 = ll.e2; var e3 = ll.e3
+        var e4 = ll.e4
+        var p_ = p; val ph = p_.hash; var lp = l.p; val lph = lp.hash
 
-    override def addToBranch(entry: Entry[K, V]): Branch2[K, V] = {
-      val hash = entry.hash; val ll = l.l
-      var e0 = ll.e0; var e1 = ll.e1; var e2 = ll.e2; var e3 = ll.e3;
-      var e4 = ll.e4
-      var p_ = p; val ph = p_.hash; var lp = l.p; val lph = lp.hash
+        val right = hash > e4.hash && ph > e4.hash && lph > e4.hash
+        val left = !right && hash < e0.hash && ph < e0.hash && lph < e0.hash
 
-      val right = hash > e4.hash && ph > e4.hash && lph > e4.hash
-      val left = !right && hash < e0.hash && ph < e0.hash && lph < e0.hash
-
-      var t: Entry[K, V] = null
-      if (lph < e4.hash) {
-        t = e4; e4 = lp; lp = t
-        if (lph < e3.hash) {
-          t = e3; e3 = e4; e4 = t
-          if (lph < e2.hash) {
-            t = e2; e2 = e3; e3 = t
-            if (lph < e1.hash) {
-              t = e1; e1 = e2; e2 = t
-              if (lph < e0.hash)
-                t = e0; e0 = e1; e1 = t
-            }
-          }
-        }
-      }
-
-      if (ph < lp.hash) {
-        t = lp; lp = p_; p_ = t
-        if (ph < e4.hash) {
+        var t: Entry[K, V] = null
+        if (lph < e4.hash) {
           t = e4; e4 = lp; lp = t
-          if (ph < e3.hash) {
+          if (lph < e3.hash) {
             t = e3; e3 = e4; e4 = t
-            if (ph < e2.hash) {
+            if (lph < e2.hash) {
               t = e2; e2 = e3; e3 = t
-              if (ph < e1.hash) {
+              if (lph < e1.hash) {
                 t = e1; e1 = e2; e2 = t
-                if (ph < e0.hash)
+                if (lph < e0.hash)
                   t = e0; e0 = e1; e1 = t
               }
             }
           }
         }
-      }
 
-      var e = entry
-      if (hash < p_.hash) {
-        t = p_; p_ = e; e = t
-        if (hash < lp.hash) {
+        if (ph < lp.hash) {
           t = lp; lp = p_; p_ = t
-          if (hash < e4.hash) {
+          if (ph < e4.hash) {
             t = e4; e4 = lp; lp = t
-            if (hash < e3.hash) {
+            if (ph < e3.hash) {
               t = e3; e3 = e4; e4 = t
-              if (hash < e2.hash) {
+              if (ph < e2.hash) {
                 t = e2; e2 = e3; e3 = t
-                if (hash < e1.hash) {
+                if (ph < e1.hash) {
                   t = e1; e1 = e2; e2 = t
-                  if (hash < e0.hash)
+                  if (ph < e0.hash)
                     t = e0; e0 = e1; e1 = t
                 }
               }
             }
           }
         }
-      }
 
-      if (left) Branch2(Leaf2(e0, e1), e2, l)
-      else if (right) Branch2(l, lp, Leaf2(p_, e))
-      else Branch2(Leaf5(e0, e1, e2, e3, e4), lp, Leaf2(p_, e))
+        var e = entry
+        if (hash < p_.hash) {
+          t = p_; p_ = e; e = t
+          if (hash < lp.hash) {
+            t = lp; lp = p_; p_ = t
+            if (hash < e4.hash) {
+              t = e4; e4 = lp; lp = t
+              if (hash < e3.hash) {
+                t = e3; e3 = e4; e4 = t
+                if (hash < e2.hash) {
+                  t = e2; e2 = e3; e3 = t
+                  if (hash < e1.hash) {
+                    t = e1; e1 = e2; e2 = t
+                    if (hash < e0.hash)
+                      t = e0; e0 = e1; e1 = t
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        if (left) Branch2(Leaf2(e0, e1), e2, l)
+        else if (right) Branch2(l, lp, Leaf2(p_, e))
+        else Branch2(Leaf5(e0, e1, e2, e3, e4), lp, Leaf2(p_, e))
+      }
     }
 
     override def replaceEntry(oldEntry: Entry[K, V], newEntry: Entry[K, V]) = {
@@ -669,7 +670,7 @@ object SMap {
         Leaf5PlusPlus(p, new Leaf5Plus(newEntry, l.l))
       else {
         val lp = l.p; val ll = l.l
-        var e0 = ll.e0; val e1 = ll.e1; val e2 = ll.e2; val e3 = ll.e3;
+        var e0 = ll.e0; val e1 = ll.e1; val e2 = ll.e2; val e3 = ll.e3
         val e4 = ll.e4
         if (oldEntry eq e0)
           Leaf5PlusPlus(
@@ -703,10 +704,10 @@ object SMap {
       if (p eq entry) l
       else if (l.p eq entry) Leaf5Plus(p, l.l)
       else {
-        var p_ = p; var lp = l.p;
+        var p_ = p; var lp = l.p
         val ll = l.l; val lph = lp.hash; val ph = p.hash
-        var e0 = ll.e0; var e1 = ll.e1; var e2 = ll.e2; var e3 = ll.e3;
-        var e4 = ll.e4;
+        var e0 = ll.e0; var e1 = ll.e1; var e2 = ll.e2; var e3 = ll.e3
+        var e4 = ll.e4
         var t: Entry[K, V] = null
         if (lph < e4.hash) {
           t = e4; e4 = lp; lp = t
@@ -756,7 +757,123 @@ object SMap {
     */
   final case class Branch2[K, V](
       left: SMap[K, V],
-      midEntry: Entry[K, V],
+      e: Entry[K, V],
       right: SMap[K, V]
-  ) extends SMap[K, V] {}
+  ) extends SMap[K, V] {
+
+    assert(!left.isEmpty && !right.isEmpty)
+
+    override def size = left.size + e.size + right.size
+    override def getMinHashEntryOrNull = left.getMinHashEntryOrNull
+    override def getMaxHashEntryOrNull = right.getMaxHashEntryOrNull
+
+    override def getEntryOrNull(hash: Int) =
+      if (hash > e.hash) right.getEntryOrNull(hash)
+      else if (hash < e.hash) left.getEntryOrNull(hash)
+      else e
+
+    override def addOrGetEntry(entry: Entry[K, V]) = {
+      val hash = entry.hash
+      if (hash > e.hash)
+        right.addOrGetEntry(entry) match {
+          case b2: Branch2[K, V] if (right.canGrowToBranch2) =>
+            Branch3(left, e, b2.left, b2.e, b2.right)
+          case found: Entry[K, V] => found
+          case added              => Branch2(left, e, added)
+        }
+      else if (hash < e.hash) {
+        left.addOrGetEntry(entry) match {
+          case b2: Branch2[K, V] if (left.canGrowToBranch2) =>
+            Branch3(b2.left, b2.e, b2.right, e, right)
+          case found: Entry[K, V] => found
+          case added              => Branch2(added, e, right)
+        }
+      } else e
+    }
+
+    override def replaceEntry(oldEntry: Entry[K, V], newEntry: Entry[K, V]) =
+      if (oldEntry eq e)
+        Branch2(left, newEntry, right)
+      else if (oldEntry.hash > e.hash)
+        Branch2(left, e, right.replaceEntry(oldEntry, newEntry))
+      else
+        Branch2(left.replaceEntry(oldEntry, newEntry), e, right)
+        
+    //     internal override ImHashMap<K, V> RemoveEntry(Entry removedEntry)
+    //     {
+    //         // The downward phase for deleting an element from a 2-3 tree is the same as the downward phase
+    //         // for inserting an element except for the case when the element to be deleted is equal to the value in
+    //         // a 2-node or a 3-node. In this case, if the value is not part of a terminal node, the value is replaced
+    //         // by its in-order predecessor or in-order successor, just as in binary search tree deletion. So in any
+    //         // case, deletion leaves a hole in a terminal node.
+    //         // The goal of the rest of the deletion algorithm is to remove the hole without violating the other
+    //         // invariants of the 2-3 tree.
+
+    //         var mid = MidEntry;
+    //         if (removedEntry.Hash > mid.Hash)
+    //         {
+    //             var newRight = Right.RemoveEntry(removedEntry);
+    //             if (newRight == Empty)
+    //             {
+    //                 // if the left node is not full yet then merge
+    //                 if (Left is Leaf5Plus1Plus1 == false)
+    //                     return Left.AddOrGetEntry(mid.Hash, mid);
+    //                 return new Branch2(Left.RemoveEntry(removedEntry = Left.GetMaxHashEntryOrDefault()), removedEntry, mid); //! the height does not change
+    //             }
+
+    //             //*rebalance needed: the branch was merged from Br2 to Br3 or to the leaf and the height decreased
+    //             if (Right is Branch2 && newRight is Branch2 == false)
+    //             {
+    //                 // the the hole has a 2-node as a parent and a 3-node as a sibling.
+    //                 if (Left is Branch3 lb3) //! the height does not change
+    //                     return new Branch2(new Branch2(lb3.Left, lb3.Entry0, lb3.Middle), lb3.Entry1, new Branch2(lb3.Right, mid, newRight));
+
+    //                 // the the hole has a 2-node as a parent and a 2-node as a sibling.
+    //                 var lb2 = (Branch2)Left;
+    //                 return new Branch3(lb2.Left, lb2.MidEntry, lb2.Right, mid, newRight);
+    //             }
+
+    //             return new Branch2(Left, mid, newRight);
+    //         }
+
+    //         // case 1, downward: swap the predecessor entry (max left entry) with the mid entry, then proceed to remove the predecessor from the Left branch
+    //         if (removedEntry == mid)
+    //             removedEntry = mid = Left.GetMaxHashEntryOrDefault();
+
+    //         // case 1, upward
+    //         var newLeft = Left.RemoveEntry(removedEntry);
+    //         if (newLeft == Empty)
+    //         {
+    //             if (Right is Leaf5Plus1Plus1 == false)
+    //                 return Right.AddOrGetEntry(mid.Hash, mid);
+    //             return new Branch2(mid, removedEntry = Right.GetMinHashEntryOrDefault(), Right.RemoveEntry(removedEntry)); //! the height does not change
+    //         }
+
+    //         //*rebalance needed: the branch was merged from Br2 to Br3 or to the leaf and the height decreased
+    //         if (Left is Branch2 && newLeft is Branch2 == false)
+    //         {
+    //             // the the hole has a 2-node as a parent and a 3-node as a sibling.
+    //             if (Right is Branch3 rb3) //! the height does not change
+    //                 return new Branch2(new Branch2(newLeft, mid, rb3.Left), rb3.Entry0, new Branch2(rb3.Middle, rb3.Entry0, rb3.Right));
+
+    //             // the the hole has a 2-node as a parent and a 2-node as a sibling.
+    //             var rb2 = (Branch2)Right;
+    //             return new Branch3(newLeft, mid, rb2.Left, rb2.MidEntry, rb2.Right);
+    //         }
+
+    //         return new Branch2(newLeft, mid, Right);
+    //     }
+    // }
+
+  }
+
+  final case class Branch3[K, V](
+      left: SMap[K, V],
+      e0: Entry[K, V],
+      mid: SMap[K, V],
+      e1: Entry[K, V],
+      right: SMap[K, V]
+  ) extends SMap[K, V] {
+    protected override def canGrowToBranch2 = true
+  }
 }
