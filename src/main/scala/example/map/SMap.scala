@@ -343,50 +343,47 @@ object SMap {
     override def getEntryOrNull(hash: Int) =
       if (hash == p.hash) p else l.getEntryOrNull(hash)
 
-    override def addOrGetEntry(entry: Entry[K, V]): SMap[K, V] =
-      entry.hash match {
-        case p.hash      => p
-        case l.p.hash    => l.p
-        case l.l.e0.hash => l.l.e0
-        case l.l.e1.hash => l.l.e1
-        case hash => {
-          var e = entry; var pp = l.p; var e0 = l.l.e0; var e1 = l.l.e1
-          var p_ = p; val ph = p_.hash; val pph = pp.hash
-          var t: Entry[K, V] = null
+    override def addOrGetEntry(entry: Entry[K, V]): SMap[K, V] = {
+      val foundEntry = getEntryOrNull(entry.hash)
+      if (foundEntry ne null) foundEntry else {
+        var lp = l.p; var e0 = l.l.e0; var e1 = l.l.e1
+        var p_ = p; val ph = p_.hash; val lph = lp.hash
+        var t: Entry[K, V] = null
 
-          // e0 and e1 are already sorted e0 < e1, we need to insert the pp, p, e in the right order,
-          // so the result should be e0 < e1 < pp < p < e
-          if (pph < e1.hash) {
-            t = pp; pp = e1; e1 = t
-            if (pph < e0.hash) {
-              t = e0; e0 = e1; e1 = t
-            }
+        // e0 and e1 are already sorted e0 < e1, we need to insert the lp, p_, e in the right order,
+        // so the result should be e0 < e1 < lp < p < e
+        if (lph < e1.hash) {
+          t = lp; lp = e1; e1 = t
+          if (lph < e0.hash) {
+            t = e0; e0 = e1; e1 = t
           }
+        }
 
-          if (ph < pp.hash) {
-            t = p_; p_ = pp; pp = t
-            if (ph < e1.hash) {
-              t = pp; pp = e1; e1 = t
-              if (ph < e0.hash)
+        if (ph < lp.hash) {
+          t = p_; p_ = lp; lp = t
+          if (ph < e1.hash) {
+            t = lp; lp = e1; e1 = t
+            if (ph < e0.hash)
+              t = e1; e1 = e0; e0 = t
+          }
+        }
+
+        var e = entry; val hash = e.hash
+        if (hash < p_.hash) {
+          t = e; e = p_; p_ = t
+          if (hash < lp.hash) {
+            e = p_; p_ = lp; lp = t
+            if (hash < e1.hash) {
+              t = lp; lp = e1; e1 = t
+              if (hash < e0.hash)
                 t = e1; e1 = e0; e0 = t
             }
           }
-
-          if (hash < p.hash) {
-            t = e; e = p_; p_ = t
-            if (hash < pp.hash) {
-              e = p_; p_ = pp; pp = t
-              if (hash < e1.hash) {
-                t = pp; pp = e1; e1 = t
-                if (hash < e0.hash)
-                  t = e1; e1 = e0; e0 = t
-              }
-            }
-          }
-
-          Leaf5(e0, e1, pp, p, e);
         }
+
+        Leaf5(e0, e1, lp, p_, e);
       }
+    }
 
     override def replaceEntry(
         oldEntry: Entry[K, V],
@@ -522,11 +519,11 @@ object SMap {
           }
         }
 
-        if (entry eq e0) Leaf5(e1, e2, e3, e4, p)
-        else if (entry eq e1) Leaf5(e0, e2, e3, e4, p)
-        else if (entry eq e2) Leaf5(e0, e1, e3, e4, p)
-        else if (entry eq e3) Leaf5(e0, e1, e2, e4, p)
-        else if (entry eq e4) Leaf5(e0, e1, e2, e3, p)
+        if (entry eq e0) Leaf5(e1, e2, e3, e4, p_)
+        else if (entry eq e1) Leaf5(e0, e2, e3, e4, p_)
+        else if (entry eq e2) Leaf5(e0, e1, e3, e4, p_)
+        else if (entry eq e3) Leaf5(e0, e1, e2, e4, p_)
+        else if (entry eq e4) Leaf5(e0, e1, e2, e3, p_)
         else Leaf5(e0, e1, e2, e3, e4)
       }
   }
@@ -565,8 +562,7 @@ object SMap {
       val hash = entry.hash; val ll = l.l
       var e0 = ll.e0; var e1 = ll.e1; var e2 = ll.e2; var e3 = ll.e3;
       var e4 = ll.e4
-      var p_ = p; val ph = p_.hash
-      var lp = l.p; val lph = lp.hash
+      var p_ = p; val ph = p_.hash; var lp = l.p; val lph = lp.hash
 
       val right = hash > e4.hash && ph > e4.hash && lph > e4.hash
       val left = !right && hash < e0.hash && ph < e0.hash && lph < e0.hash
@@ -606,7 +602,7 @@ object SMap {
       }
 
       var e = entry
-      if (hash < p.hash) {
+      if (hash < p_.hash) {
         t = p_; p_ = e; e = t
         if (hash < lp.hash) {
           t = lp; lp = p_; p_ = t
@@ -628,97 +624,98 @@ object SMap {
       }
 
       if (left) Branch2(Leaf2(e0, e1), e2, l)
-      else if (right) Branch2(l, lp, Leaf2(p, e))
-      else Branch2(Leaf5(e0, e1, e2, e3, e4), lp, Leaf2(p, e))
+      else if (right) Branch2(l, lp, Leaf2(p_, e))
+      else Branch2(Leaf5(e0, e1, e2, e3, e4), lp, Leaf2(p_, e))
     }
 
-    // public sealed override ImHashMap<K, V> ReplaceEntry(int hash, Entry oldEntry, Entry newEntry)
-    // {
-    //     var p = Plus;
-    //     if (p == oldEntry)
-    //         return new Leaf5Plus1Plus1(newEntry, L);
+    override def replaceEntry(oldEntry: Entry[K, V], newEntry: Entry[K, V]) = {
+      if (p eq oldEntry)
+        Leaf5PlusPlus(newEntry, l)
+      else if (l.p eq oldEntry)
+        Leaf5PlusPlus(p, new Leaf5Plus(newEntry, l.l))
+      else {
+        val lp = l.p; val ll = l.l
+        var e0 = ll.e0; val e1 = ll.e1; val e2 = ll.e2; val e3 = ll.e3;
+        val e4 = ll.e4
+        if (oldEntry eq e0)
+          Leaf5PlusPlus(
+            p,
+            new Leaf5Plus(lp, new Leaf5(newEntry, e1, e2, e3, e4))
+          )
+        else if (oldEntry eq e1)
+          Leaf5PlusPlus(
+            p,
+            new Leaf5Plus(lp, new Leaf5(e0, newEntry, e2, e3, e4))
+          )
+        else if (oldEntry eq e2)
+          Leaf5PlusPlus(
+            p,
+            new Leaf5Plus(lp, new Leaf5(e0, e1, newEntry, e3, e4))
+          )
+        else if (oldEntry eq e3)
+          Leaf5PlusPlus(
+            p,
+            new Leaf5Plus(lp, new Leaf5(e0, e1, e2, newEntry, e4))
+          )
+        else
+          Leaf5PlusPlus(
+            p,
+            new Leaf5Plus(lp, new Leaf5(e0, e1, e2, e3, newEntry))
+          )
+      }
+    }
 
-    //     var pp = L.Plus;
-    //     if (pp == oldEntry)
-    //         return new Leaf5Plus1Plus1(p, new Leaf5Plus1(newEntry, L.L));
-
-    //     var l = L.L;
-    //     Entry e0 = l.Entry0, e1 = l.Entry1, e2 = l.Entry2, e3 = l.Entry3, e4 = l.Entry4;
-    //     return
-    //         oldEntry == e0 ? new Leaf5Plus1Plus1(p, new Leaf5Plus1(pp, new Leaf5(newEntry, e1, e2, e3, e4))) :
-    //         oldEntry == e1 ? new Leaf5Plus1Plus1(p, new Leaf5Plus1(pp, new Leaf5(e0, newEntry, e2, e3, e4))) :
-    //         oldEntry == e2 ? new Leaf5Plus1Plus1(p, new Leaf5Plus1(pp, new Leaf5(e0, e1, newEntry, e3, e4))) :
-    //         oldEntry == e3 ? new Leaf5Plus1Plus1(p, new Leaf5Plus1(pp, new Leaf5(e0, e1, e2, newEntry, e4))) :
-    //                          new Leaf5Plus1Plus1(p, new Leaf5Plus1(pp, new Leaf5(e0, e1, e2, e3, newEntry)));
-    // }
-
-    // internal override ImHashMap<K, V> RemoveEntry(Entry removedEntry)
-    // {
-    //     var p = Plus;
-    //     if (p == removedEntry)
-    //         return L;
-
-    //     var pp = L.Plus;
-    //     if (pp == removedEntry)
-    //         return new Leaf5Plus1(p, L.L);
-
-    //     var l = L.L;
-    //     Entry e0 = l.Entry0, e1 = l.Entry1, e2 = l.Entry2, e3 = l.Entry3, e4 = l.Entry4, swap = null;
-    //     int pph = pp.Hash, ph = p.Hash;
-    //     if (pph < e4.Hash)
-    //     {
-    //         swap = e4; e4 = pp; pp = swap;
-    //         if (pph < e3.Hash)
-    //         {
-    //             swap = e3; e3 = e4; e4 = swap;
-    //             if (pph < e2.Hash)
-    //             {
-    //                 swap = e2; e2 = e3; e3 = swap;
-    //                 if (pph < e1.Hash)
-    //                 {
-    //                     swap = e1; e1 = e2; e2 = swap;
-    //                     if (pph < e0.Hash)
-    //                     {
-    //                         swap = e0; e0 = e1; e1 = swap;
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-    //     if (ph < pp.Hash)
-    //     {
-    //         swap = pp; pp = p; p = swap;
-    //         if (ph < e4.Hash)
-    //         {
-    //             swap = e4; e4 = pp; pp = swap;
-    //             if (ph < e3.Hash)
-    //             {
-    //                 swap = e3; e3 = e4; e4 = swap;
-    //                 if (ph < e2.Hash)
-    //                 {
-    //                     swap = e2; e2 = e3; e3 = swap;
-    //                     if (ph < e1.Hash)
-    //                     {
-    //                         swap = e1; e1 = e2; e2 = swap;
-    //                         if (ph < e0.Hash)
-    //                         {
-    //                             swap = e0; e0 = e1; e1 = swap;
-    //                         }
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-
-    //     return removedEntry == e0 ? new Leaf5Plus1(p, new Leaf5(e1, e2, e3, e4, pp))
-    //         :  removedEntry == e1 ? new Leaf5Plus1(p, new Leaf5(e0, e2, e3, e4, pp))
-    //         :  removedEntry == e2 ? new Leaf5Plus1(p, new Leaf5(e0, e1, e3, e4, pp))
-    //         :  removedEntry == e3 ? new Leaf5Plus1(p, new Leaf5(e0, e1, e2, e4, pp))
-    //         :  removedEntry == e4 ? new Leaf5Plus1(p, new Leaf5(e0, e1, e2, e3, pp))
-    //         :  removedEntry == pp ? new Leaf5Plus1(p, new Leaf5(e0, e1, e2, e3, e4))
-    //         :                       new Leaf5Plus1(pp,new Leaf5(e0, e1, e2, e3, e4));
-    // }
-
+    override protected def removeEntry(entry: Entry[K, V]) = {
+      if (p eq entry) l
+      else if (l.p eq entry) Leaf5Plus(p, l.l)
+      else {
+        var p_ = p; var lp = l.p;
+        val ll = l.l; val lph = lp.hash; val ph = p.hash
+        var e0 = ll.e0; var e1 = ll.e1; var e2 = ll.e2; var e3 = ll.e3;
+        var e4 = ll.e4;
+        var t: Entry[K, V] = null
+        if (lph < e4.hash) {
+          t = e4; e4 = lp; lp = t
+          if (lph < e3.hash) {
+            t = e3; e3 = e4; e4 = t
+            if (lph < e2.hash) {
+              t = e2; e2 = e3; e3 = t
+              if (lph < e1.hash) {
+                t = e1; e1 = e2; e2 = t
+                if (lph < e0.hash) {
+                  t = e0; e0 = e1; e1 = t
+                }
+              }
+            }
+          }
+        }
+        if (ph < lp.hash) {
+          t = lp; lp = p_; p_ = t
+          if (ph < e4.hash) {
+            t = e4; e4 = lp; lp = t
+            if (ph < e3.hash) {
+              t = e3; e3 = e4; e4 = t
+              if (ph < e2.hash) {
+                t = e2; e2 = e3; e3 = t
+                if (ph < e1.hash) {
+                  t = e1; e1 = e2; e2 = t
+                  if (ph < e0.hash) {
+                    t = e0; e0 = e1; e1 = t
+                  }
+                }
+              }
+            }
+          }
+        }
+        if (entry eq e0) Leaf5Plus(p_, new Leaf5(e1, e2, e3, e4, lp))
+        else if (entry eq e1) Leaf5Plus(p_, new Leaf5(e0, e2, e3, e4, lp))
+        else if (entry eq e2) Leaf5Plus(p_, new Leaf5(e0, e1, e3, e4, lp))
+        else if (entry eq e3) Leaf5Plus(p_, new Leaf5(e0, e1, e2, e4, lp))
+        else if (entry eq e4) Leaf5Plus(p_, new Leaf5(e0, e1, e2, e3, lp))
+        else if (entry eq lp) Leaf5Plus(p_, new Leaf5(e0, e1, e2, e3, e4))
+        else Leaf5Plus(lp, new Leaf5(e0, e1, e2, e3, e4))
+      }
+    }
   }
 
   /** Branch of 2 leafs or branches with entry in the middle
