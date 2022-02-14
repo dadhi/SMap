@@ -53,24 +53,24 @@ class SMapSpec extends AnyFunSuite {
     assert(m(3) contains "c")
   }
   test("Remove from empty map should return empty map") {
-    assert(SMap.empty.remove(1).isEmpty)
+    assert(SMap.empty.removed(1).isEmpty)
   }
   test("Remove existing key from 1 item map should return empty map") {
-    assert(SMap(1 -> "a").remove(1).isEmpty)
+    assert(SMap(1 -> "a").removed(1).isEmpty)
   }
   test("Remove non-existing key from 1 item map should keep the original map") {
     val m = SMap(1 -> "a")
-    assert(m.remove(2) eq m)
+    assert(m.removed(2) eq m)
   }
   test(
     "Remove existing key from 2 item map should return the map without the key"
   ) {
     val m = SMap(1 -> "a", 2 -> "b")
-    val r2 = m.remove(1)
+    val r2 = m.removed(1)
     assert(r2.contains(1) == false)
     assert(r2.contains(2) == true)
 
-    val r1 = m.remove(2)
+    val r1 = m.removed(2)
     assert(r1.contains(1) == true)
     assert(r1.contains(2) == false)
   }
@@ -78,7 +78,7 @@ class SMapSpec extends AnyFunSuite {
     "Remove existing key from 3 item map should return the map without the key"
   ) {
     val m = SMap(1 -> "a", 2 -> "b", 3 -> "c")
-    val r = m.remove(2)
+    val r = m.removed(2)
     assert(r.size == 2)
     assert(r.contains(1))
     assert(r.contains(3))
@@ -88,15 +88,15 @@ class SMapSpec extends AnyFunSuite {
     assert(m4.size == 4)
     assert(m4.contains(4))
 
-    val m5 = m4.addOrUpdateEntry(SMap.KVEntry(5, 5, "e")) // todo: @wip add better add method 
+    val m5 = m4 + (5, "e") 
     assert(m5.size == 5)
     assert(m5.contains(5))
 
-    val m6 = m5.addOrUpdateEntry(SMap.KVEntry(6, 6, "f")) // todo: @wip add better add method 
+    val m6 = m5 + (6, "f") 
     assert(m6.size == 6)
     assert(m6.contains(6))
 
-    val m7 = m6.addOrUpdateEntry(SMap.KVEntry(7, 7, "g")) // todo: @wip add better add method 
+    val m7 = m6 + (7, "g")
     assert(m7.size == 7)
     assert(m7.contains(7))
   }

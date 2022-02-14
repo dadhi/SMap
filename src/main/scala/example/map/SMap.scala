@@ -89,6 +89,37 @@ trait SMap[K, V] {
     case None        => default(key)
   }
 
+  /** Creates a new map obtained by updating this map with a given key/value
+    * pair.
+    */
+  def updated(key: K, value: V): SMap[K, V] =
+    addOrUpdateEntry(newEntry(key, value))
+
+  /** Update a mapping for the specified key and its current optionally-mapped
+    * value (`Some` if there is current mapping, `None` if not).
+    *
+    * If the remapping function returns `Some(v)`, the mapping is updated with
+    * the new value `v`. If the remapping function returns `None`, the mapping
+    * is removed (or remains absent if initially absent). If the function itself
+    * throws an exception, the exception is rethrown, and the current mapping is
+    * left unchanged.
+    */
+  def updatedWith(
+      key: K
+  )(remappingFunction: Option[V] => Option[V]): SMap[K, V] = {
+    val previousValue = get(key)
+    val nextValue = remappingFunction(previousValue)
+    (previousValue, nextValue) match {
+      case (None, None)    => this
+      case (Some(_), None) => removed(key)
+      case (_, Some(v))    => updated(key, v)
+    }
+  }
+
+  /** Alias for `updated`
+    */
+  def +(kv: (K, V)): SMap[K, V] = updated(kv._1, kv._2)
+
   /** Defines the default value computation for the map, returned when a key is
     * not found. The method implemented here throws an exception, but it might
     * be overridden in subclasses.
@@ -111,7 +142,7 @@ trait SMap[K, V] {
   /** Returns the new map without the specified hash and key (if found) or
     * returns the same map otherwise
     */
-  def remove(key: K) = if (isEmpty) this
+  def removed(key: K) = if (isEmpty) this
   else
     getEntryOrNull(key.hashCode) match {
       case e: KVEntry[K, V] => removeEntry(e)
@@ -144,8 +175,10 @@ object SMap {
 
   def empty[K, V]: SMap[K, V] = Empty.asInstanceOf[SMap[K, V]]
 
-  def newEntry[K, V](item: (K, V)): KVEntry[K, V] =
-    KVEntry(item._1.hashCode, item._1, item._2)
+  @`inline` def newEntry[K, V](key: K, value: V): KVEntry[K, V] =
+    KVEntry(key.hashCode, key, value)
+
+  def newEntry[K, V](item: (K, V)): KVEntry[K, V] = newEntry(item._1, item._2)
 
   def apply[K, V](item: (K, V)): SMap[K, V] = newEntry(item)
 
@@ -345,7 +378,8 @@ object SMap {
 
     override def addOrGetEntry(entry: Entry[K, V]): SMap[K, V] = {
       val foundEntry = getEntryOrNull(entry.hash)
-      if (foundEntry ne null) foundEntry else {
+      if (foundEntry ne null) foundEntry
+      else {
         var lp = l.p; var e0 = l.l.e0; var e1 = l.l.e1
         var p_ = p; val ph = p_.hash; val lph = lp.hash
         var t: Entry[K, V] = null
