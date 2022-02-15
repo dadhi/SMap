@@ -22,7 +22,7 @@ trait SMap[K, V] {
   /** Indicates that the map may grow tot Branch2 and therefore may require
     * re-balance
     */
-  protected def canGrowToBranch2 = false
+  protected def closeToSplitAndRebalance = false
 
   protected def getMinHashEntryOrNull: Entry[K, V] = null
   protected def getMaxHashEntryOrNull: Entry[K, V] = null
@@ -40,9 +40,9 @@ trait SMap[K, V] {
   def addOrGetEntry(entry: Entry[K, V]): SMap[K, V] = entry
 
   /** Returns the new map with old entry replaced by the new entry. Note that
-    * the old entry should be present
+    * the old entry should be present.
     */
-  def replaceEntry(
+  protected def replaceEntry(
       oldEntry: Entry[K, V],
       newEntry: Entry[K, V]
   ): SMap[K, V] = this
@@ -216,18 +216,31 @@ object SMap {
         updateOrKeep: UpdaterOrKeeper[S]
     ): Entry[K, V]
 
+    /** The method won' add the entry in the case of the conflicting hash here,
+      * because this is the responsibility of `replaceEntry`. So you may always
+      * expect the same entry to be returned for the conflicting hash.
+      */
     override def addOrGetEntry(entry: Entry[K, V]): SMap[K, V] =
-      if (entry.hash > this.hash) new Leaf2(this, entry)
-      else if (entry.hash < this.hash) new Leaf2(entry, this)
+      if (entry.hash > hash) new Leaf2(this, entry)
+      else if (entry.hash < hash) new Leaf2(entry, this)
       else this
 
-    override def replaceEntry(
+    /** When down to the entry, the oldEntry should be present in the entry
+      */
+    protected override def replaceEntry(
         oldEntry: Entry[K, V],
         newEntry: Entry[K, V]
-    ): SMap[K, V] = if (this eq oldEntry) newEntry else oldEntry
+    ): SMap[K, V] = {
+      assert(this eq oldEntry)
+      newEntry
+    }
 
-    override def removeEntry(entry: Entry[K, V]): SMap[K, V] =
-      if (this eq entry) SMap.empty else this
+    /** When down to the entry, the entry should be present in the entry
+      */
+    protected override def removeEntry(entry: Entry[K, V]): SMap[K, V] = {
+      assert(this eq entry)
+      SMap.empty
+    }
   }
 
   final case class KVEntry[K, V](override val hash: Int, key: K, value: V)
@@ -239,8 +252,8 @@ object SMap {
       if (this.hash == hash && this.key == key) this else null
 
     override def update(newEntry: KVEntry[K, V]): Entry[K, V] =
-      if (this.key == newEntry.key) newEntry
-      else HashConflictingEntry(this.hash, Array(newEntry, this))
+      if (key == newEntry.key) newEntry
+      else HashConflictingEntry(hash, Array(newEntry, this))
 
     override def updateOrKeep[S](
         state: S,
@@ -343,8 +356,8 @@ object SMap {
     }
 
     override def addOrGetEntry(entry: Entry[K, V]): SMap[K, V] = {
-      val foundEntry = getEntryOrNull(entry.hash)
-      if (foundEntry ne null) foundEntry else Leaf2PlusPlus(entry, this)
+      val found = getEntryOrNull(entry.hash)
+      if (found ne null) found else Leaf2PlusPlus(entry, this)
     }
 
     override def replaceEntry(
@@ -569,7 +582,7 @@ object SMap {
 
   final case class Leaf5PlusPlus[K, V](p: Entry[K, V], l: Leaf5Plus[K, V])
       extends SMap[K, V] {
-    protected override def canGrowToBranch2 = true
+    protected override def closeToSplitAndRebalance = true
 
     override def size = p.size + l.size
 
@@ -776,14 +789,16 @@ object SMap {
       val hash = entry.hash
       if (hash > e.hash)
         right.addOrGetEntry(entry) match {
-          case b2: Branch2[K, V] if (right.canGrowToBranch2) =>
+          case b2: Branch2[K, V] if (right.closeToSplitAndRebalance) =>
             Branch3(left, e, b2.left, b2.e, b2.right)
+          // it is fine to return the possibly added entry (e.g. `HashConflictingEntry`)
+          // because on the consumer side we will call the `replaceEntry` for such case
           case found: Entry[K, V] => found
           case added              => Branch2(left, e, added)
         }
       else if (hash < e.hash) {
         left.addOrGetEntry(entry) match {
-          case b2: Branch2[K, V] if (left.canGrowToBranch2) =>
+          case b2: Branch2[K, V] if (left.closeToSplitAndRebalance) =>
             Branch3(b2.left, b2.e, b2.right, e, right)
           case found: Entry[K, V] => found
           case added              => Branch2(added, e, right)
@@ -798,73 +813,82 @@ object SMap {
         Branch2(left, e, right.replaceEntry(oldEntry, newEntry))
       else
         Branch2(left.replaceEntry(oldEntry, newEntry), e, right)
-        
-    //     internal override ImHashMap<K, V> RemoveEntry(Entry removedEntry)
-    //     {
-    //         // The downward phase for deleting an element from a 2-3 tree is the same as the downward phase
-    //         // for inserting an element except for the case when the element to be deleted is equal to the value in
-    //         // a 2-node or a 3-node. In this case, if the value is not part of a terminal node, the value is replaced
-    //         // by its in-order predecessor or in-order successor, just as in binary search tree deletion. So in any
-    //         // case, deletion leaves a hole in a terminal node.
-    //         // The goal of the rest of the deletion algorithm is to remove the hole without violating the other
-    //         // invariants of the 2-3 tree.
 
-    //         var mid = MidEntry;
-    //         if (removedEntry.Hash > mid.Hash)
-    //         {
-    //             var newRight = Right.RemoveEntry(removedEntry);
-    //             if (newRight == Empty)
-    //             {
-    //                 // if the left node is not full yet then merge
-    //                 if (Left is Leaf5Plus1Plus1 == false)
-    //                     return Left.AddOrGetEntry(mid.Hash, mid);
-    //                 return new Branch2(Left.RemoveEntry(removedEntry = Left.GetMaxHashEntryOrDefault()), removedEntry, mid); //! the height does not change
-    //             }
+    override protected def removeEntry(entry: Entry[K, V]) = {
+      // The downward phase for deleting an element from a 2-3 tree is the same as the downward phase
+      // for inserting an element except for the case when the element to be deleted is equal to the value in
+      // a 2-node or a 3-node. In this case, if the value is not part of a terminal node, the value is replaced
+      // by its in-order predecessor or in-order successor, just as in binary search tree deletion. So in any
+      // case, deletion leaves a hole in a terminal node.
+      // The goal of the rest of the deletion algorithm is to remove the hole without violating the other
+      // invariants of the 2-3 tree.
 
-    //             //*rebalance needed: the branch was merged from Br2 to Br3 or to the leaf and the height decreased
-    //             if (Right is Branch2 && newRight is Branch2 == false)
-    //             {
-    //                 // the the hole has a 2-node as a parent and a 3-node as a sibling.
-    //                 if (Left is Branch3 lb3) //! the height does not change
-    //                     return new Branch2(new Branch2(lb3.Left, lb3.Entry0, lb3.Middle), lb3.Entry1, new Branch2(lb3.Right, mid, newRight));
-
-    //                 // the the hole has a 2-node as a parent and a 2-node as a sibling.
-    //                 var lb2 = (Branch2)Left;
-    //                 return new Branch3(lb2.Left, lb2.MidEntry, lb2.Right, mid, newRight);
-    //             }
-
-    //             return new Branch2(Left, mid, newRight);
-    //         }
-
-    //         // case 1, downward: swap the predecessor entry (max left entry) with the mid entry, then proceed to remove the predecessor from the Left branch
-    //         if (removedEntry == mid)
-    //             removedEntry = mid = Left.GetMaxHashEntryOrDefault();
-
-    //         // case 1, upward
-    //         var newLeft = Left.RemoveEntry(removedEntry);
-    //         if (newLeft == Empty)
-    //         {
-    //             if (Right is Leaf5Plus1Plus1 == false)
-    //                 return Right.AddOrGetEntry(mid.Hash, mid);
-    //             return new Branch2(mid, removedEntry = Right.GetMinHashEntryOrDefault(), Right.RemoveEntry(removedEntry)); //! the height does not change
-    //         }
-
-    //         //*rebalance needed: the branch was merged from Br2 to Br3 or to the leaf and the height decreased
-    //         if (Left is Branch2 && newLeft is Branch2 == false)
-    //         {
-    //             // the the hole has a 2-node as a parent and a 3-node as a sibling.
-    //             if (Right is Branch3 rb3) //! the height does not change
-    //                 return new Branch2(new Branch2(newLeft, mid, rb3.Left), rb3.Entry0, new Branch2(rb3.Middle, rb3.Entry0, rb3.Right));
-
-    //             // the the hole has a 2-node as a parent and a 2-node as a sibling.
-    //             var rb2 = (Branch2)Right;
-    //             return new Branch3(newLeft, mid, rb2.Left, rb2.MidEntry, rb2.Right);
-    //         }
-
-    //         return new Branch2(newLeft, mid, Right);
-    //     }
-    // }
-
+      if (entry.hash > e.hash) {
+        val newRight = right.removeEntry(entry)
+        right match {
+          // the Entry means that we are removing the right completely.
+          case _: Entry[K, V] =>
+            // if the left node is not a full leaf yet then merge into the leaf,
+            // going from the branch to leaf and decreasing the height by one.
+            if (!left.closeToSplitAndRebalance)
+              left.addOrGetEntry(e)
+            else {
+              val maxLeftEntry = left.getMaxHashEntryOrNull
+              Branch2(left.removeEntry(maxLeftEntry), maxLeftEntry, e)
+            }
+          // *re-balance is needed when the branch was merged
+          // from the Br2 to Br3 or to the Leaf and the height is decreased
+          case _: Branch2[K, V] if (!newRight.isInstanceOf[Branch2[K, V]]) =>
+            left match {
+              // the hole has a 2-node as a parent and a 3-node as a sibling:
+              case b3: Branch3[K, V] =>
+                new Branch2(
+                  Branch2(b3.left, b3.e0, b3.mid),
+                  b3.e1,
+                  Branch2(b3.right, e, newRight)
+                )
+              // the the hole has a 2-node as a parent and a 2-node as a sibling:
+              case b2: Branch2[K, V] =>
+                Branch3(b2.left, b2.e, b2.right, e, newRight)
+            }
+          case _ => Branch2(left, e, newRight)
+        }
+      } else {
+        val newMidEntry = if (entry eq e) left.getMaxHashEntryOrNull else e
+        // go downward:
+        // swap the predecessor entry (max left entry) with the mid entry,
+        // then proceed to remove the predecessor from the Left branch
+        val newLeft = left.removeEntry(if (entry eq e) newMidEntry else entry)
+        left match {
+          // the Entry means that we are removing the left completely.
+          case _: Entry[K, V] =>
+            if (!right.closeToSplitAndRebalance)
+              right.addOrGetEntry(newMidEntry)
+            else {
+              val rightMinEntry = right.getMinHashEntryOrNull
+              val newRight = right.removeEntry(rightMinEntry)
+              Branch2(newMidEntry, rightMinEntry, newRight)
+            }
+          // *re-balance is needed when the branch was merged
+          // from Br2 to Br3 or to the leaf and the height decreased
+          case _: Branch2[K, V] if (!newLeft.isInstanceOf[Branch2[K, V]]) =>
+            right match {
+              // the the hole has a 2-node as a parent and a 3-node as a sibling:
+              case b3: Branch3[K, V] =>
+                Branch2(
+                  Branch2(newLeft, newMidEntry, b3.left),
+                  b3.e0,
+                  Branch2(b3.mid, b3.e1, b3.right)
+                )
+              // the the hole has a 2-node as a parent and a 2-node as a sibling.
+              case b2: Branch2[K, V] =>
+                Branch3(newLeft, newMidEntry, b2.left, b2.e, b2.right)
+            }
+          case _ =>
+            Branch2(newLeft, newMidEntry, right)
+        }
+      }
+    }
   }
 
   final case class Branch3[K, V](
@@ -874,6 +898,6 @@ object SMap {
       e1: Entry[K, V],
       right: SMap[K, V]
   ) extends SMap[K, V] {
-    protected override def canGrowToBranch2 = true
+    protected override def closeToSplitAndRebalance = true
   }
 }
