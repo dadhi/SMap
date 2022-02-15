@@ -24,7 +24,7 @@ class Benchmark extends AnyFunSuite {
         m = m + (i -> "m")
       m
     }
-    println(s"Adding 10 items to Map: $result")
+    println(s"Adding 100 items to Map: $result")
   }
 
   test("Add items to SMap") {

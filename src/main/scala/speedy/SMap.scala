@@ -27,7 +27,8 @@ trait SMap[K, V] {
   protected def getMinHashEntryOrNull: Entry[K, V] = null
   protected def getMaxHashEntryOrNull: Entry[K, V] = null
 
-  /** Lookup for the entry by hash. If nothing the method returns `null`
+  /** Lookup for the entry by hash. If nothing found then the method returns
+    * `null`
     */
   protected def getEntryOrNull(hash: Int): Entry[K, V] = null
 
@@ -208,7 +209,7 @@ object SMap {
       */
     def update(newEntry: KVEntry[K, V]): Entry[K, V]
 
-    /** Updating the entry with the new one using the `update` method
+    /** Updating the entry with the new one using the `updateOrKeep` method
       */
     def updateOrKeep[S](
         state: S,
@@ -216,7 +217,7 @@ object SMap {
         updateOrKeep: UpdaterOrKeeper[S]
     ): Entry[K, V]
 
-    /** The method won' add the entry in the case of the conflicting hash here,
+    /** The method won't add the entry in the case of the conflicting hash here,
       * because this is the responsibility of `replaceEntry`. So you may always
       * expect the same entry to be returned for the conflicting hash.
       */
