@@ -100,7 +100,7 @@ class SMapSpec extends AnyFunSuite {
     assert(m7.size == 7)
     assert(m7.contains(7))
   }
-  test("Can add 8, 9, 10, 11 items to the map") {
+  test("Can add and update 8, 9, 10, 11 items to the map") {
     var m = SMap.empty[Int, String]
     for (i <- 1 to 11)
       m = m.updated(i, s"v$i")
@@ -110,7 +110,7 @@ class SMapSpec extends AnyFunSuite {
       m = m.updated(i, s"u$i")
     assert(m.size == 11)
   }
-  test("Can add 12-15 items to the map") {
+  test("Can add and update 12-15 items to the map") {
     var m = SMap.empty[Int, String]
     for (i <- 1 to 11)
       m = m.updated(i, s"v$i")
@@ -121,6 +121,15 @@ class SMapSpec extends AnyFunSuite {
     for (i <- 1 to 15)
       m = m.updated(i, s"u$i")
     assert(m.size == 15)
+  }
+  test("Can add and update 25 items to the map") {
+    var m = SMap.empty[Int, String]
+    for (i <- 1 to 25)
+      m = m.updated(i, s"v$i")
+    assert(m.size == 25)
+    for (i <- 1 to 25)
+      m = m.updated(i, s"u$i")
+    assert(m.size == 25)
   }
 }
 
