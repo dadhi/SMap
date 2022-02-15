@@ -1,4 +1,4 @@
-package example.map
+package speedy
 
 import scala.reflect.ClassTag
 

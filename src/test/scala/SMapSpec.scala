@@ -1,5 +1,5 @@
+import speedy.SMap
 import org.scalatest._, org.scalatest.funsuite._
-import example.map.SMap
 
 class SMapSpec extends AnyFunSuite {
   test("Empty map is empty map") {
