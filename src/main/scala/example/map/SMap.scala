@@ -948,5 +948,106 @@ object SMap {
       else if (hash == h0) e0
       else e1
     }
+
+    override def replaceEntry(oldEntry: Entry[K, V], newEntry: Entry[K, V]) = {
+      val h = oldEntry.hash; val h0 = e0.hash; val h1 = e1.hash
+      if (h > h1)
+        Branch3(left, e0, mid, e1, right.replaceEntry(oldEntry, newEntry))
+      else if (h < h0)
+        Branch3(left.replaceEntry(oldEntry, newEntry), e0, mid, e1, right)
+      else if (h > h0 && h < h1)
+        Branch3(left, e0, mid.replaceEntry(oldEntry, newEntry), e1, right)
+      else if (h == h0) Branch3(left, newEntry, mid, e1, right)
+      else Branch3(left, e0, mid, newEntry, right)
+    }
+
+    /*
+            internal override ImhMap<K, V> RemoveEntry(Entry removedEntry)
+            {
+                var midLeft  = Entry0;
+                var middle   = Middle;
+                var midRight = e1;
+                var right    = Right;
+
+                // case 1, downward: swap the predecessor entry (max left entry) with the mid entry, then proceed to remove the predecessor from the Left branch
+                if (removedEntry == midLeft)
+                    removedEntry = midLeft = Left.GetMaxHashEntryOrDefault();
+
+                if (removedEntry.Hash <= midLeft.Hash)
+                {
+                    var newLeft = Left.RemoveEntry(removedEntry);
+                    if (newLeft == Empty)
+                    {
+                        if (middle is Leaf5Plus1Plus1 == false)
+                            return new Branch2(middle.AddOrGetEntry(midLeft.Hash, midLeft), midRight, right); //! the height does not change
+                        return new Branch3(midLeft, removedEntry = middle.GetMinHashEntryOrDefault(), middle.RemoveEntry(removedEntry), midRight, right); //! the height does not change
+                    }
+
+                    // rebalance is needed because the branch was merged from Br2 to Br3 or to Leaf and the height decrease
+                    if (Left is Branch2 && newLeft is Branch2 == false)
+                    {
+                        // the hole has a 3-node as a parent and a 3-node as a sibling.
+                        if (middle is Branch3 mb3) //! the height does not change
+                            return new Branch3(new Branch2(newLeft, midLeft, mb3.Left), mb3.Entry0, new Branch2(mb3.Middle, mb3.Entry1, mb3.Right), midRight, right);
+
+                        // the hole has a 3-node as a parent and a 2-node as a sibling.
+                        var mb2 = (Branch2)middle;
+                        return new Branch2(new Branch3(newLeft, midLeft, mb2.Left, mb2.MidEntry, mb2.Right), midRight, right);
+                    }
+
+                    return new Branch3(newLeft, midLeft, middle, midRight, right); // no rebalance needed
+                }
+
+                if (removedEntry == midRight)
+                    removedEntry = midRight = middle.GetMaxHashEntryOrDefault();
+
+                if (removedEntry.Hash <= midRight.Hash)
+                {
+                    var newMiddle = middle.RemoveEntry(removedEntry);
+                    if (newMiddle == Empty)
+                    {
+                        if (right is Leaf5Plus1Plus1 == false)
+                            return new Branch2(Left, midLeft, right.AddOrGetEntry(midLeft.Hash, midLeft)); // the Br3 become the Br2 but the height did not change - so no rebalance needed
+                        return new Branch3(Left, midLeft, midRight, removedEntry = right.GetMinHashEntryOrDefault(), right.RemoveEntry(removedEntry)); //! the height does not change
+                    }
+
+                    if (middle is Branch2 && newMiddle is Branch2 == false)
+                    {
+                        // the hole has a 3-node as a parent and a 3-node as a sibling.
+                        if (right is Branch3 rb3) //! the height does not change
+                            return new Branch3(Left, midLeft, new Branch2(newMiddle, midRight, rb3.Left), rb3.Entry0, new Branch2(rb3.Middle, rb3.Entry1, rb3.Right));
+
+                        // the hole has a 3-node as a parent and a 2-node as a sibling.
+                        var rb2 = (Branch2)right;
+                        return new Branch2(Left, midLeft, new Branch3(newMiddle, midRight, rb2.Left, rb2.MidEntry, rb2.Right));
+                    }
+
+                    return new Branch3(Left, midLeft, newMiddle, midRight, right);
+                }
+
+                var newRight = right.RemoveEntry(removedEntry);
+                if (newRight == Empty)
+                {
+                    if (middle is Leaf5Plus1Plus1 == false)
+                        return new Branch2(Left, midLeft, middle.AddOrGetEntry(midRight.Hash, midRight));
+                    return new Branch3(Left, midLeft, middle.RemoveEntry(removedEntry = middle.GetMaxHashEntryOrDefault()), removedEntry, midRight);
+                }
+
+                // right was a Br2 but now is Leaf or Br3 - means the branch height is decrease
+                if (right is Branch2 && newRight is Branch2 == false)
+                {
+                    // the hole has a 3-node as a parent and a 3-node as a sibling.new
+                    if (middle is Branch3 mb3) //! the height does not change
+                        return new Branch3(Left, midLeft, new Branch2(mb3.Left, mb3.Entry0, mb3.Middle), mb3.Entry1, new Branch2(mb3.Right, midRight, newRight));
+
+                    // the hole has a 3-node as a parent and a 2-node as a sibling.
+                    var mb2 = (Branch2)middle;
+                    return new Branch2(Left, midLeft, new Branch3(mb2.Left, mb2.MidEntry, mb2.Right, midRight, newRight));
+                }
+
+                return new Branch3(Left, midLeft, middle, midRight, newRight);
+            }
+     */
+
   }
 }
