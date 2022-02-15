@@ -176,7 +176,7 @@ trait SMap[K, V] {
 
 object SMap {
 
-  private case object Empty extends SMap[Any, Nothing]
+  case object Empty extends SMap[Any, Nothing]
 
   def empty[K, V]: SMap[K, V] = Empty.asInstanceOf[SMap[K, V]]
 
@@ -193,7 +193,7 @@ object SMap {
     m
   }
 
-  abstract class Entry[K, V](val hash: Int) extends SMap[K, V] {
+  protected abstract class Entry[K, V](val hash: Int) extends SMap[K, V] {
 
     override def getMinHashEntryOrNull: Entry[K, V] = this
     override def getMaxHashEntryOrNull: Entry[K, V] = this
@@ -227,17 +227,14 @@ object SMap {
 
     /** When down to the entry, the oldEntry should be present in the entry
       */
-    protected override def replaceEntry(
-        oldEntry: Entry[K, V],
-        newEntry: Entry[K, V]
-    ): SMap[K, V] = {
+    override def replaceEntry(oldEntry: Entry[K, V], newEntry: Entry[K, V]) = {
       assert(this eq oldEntry)
       newEntry
     }
 
     /** When down to the entry, the entry should be present in the entry
       */
-    protected override def removeEntry(entry: Entry[K, V]): SMap[K, V] = {
+    override def removeEntry(entry: Entry[K, V]): SMap[K, V] = {
       assert(this eq entry)
       SMap.empty
     }
@@ -277,7 +274,7 @@ object SMap {
     newItems
   }
 
-  case class HashConflictingEntry[K, V](
+  final case class HashConflictingEntry[K, V](
       override val hash: Int,
       conflicts: Array[KVEntry[K, V]]
   ) extends Entry[K, V](hash) {
@@ -307,7 +304,7 @@ object SMap {
     }
   }
 
-  final case class Leaf2[K, V](e0: Entry[K, V], e1: Entry[K, V])
+  protected final case class Leaf2[K, V](e0: Entry[K, V], e1: Entry[K, V])
       extends SMap[K, V] {
 
     assert(e0.hash < e1.hash)
@@ -339,7 +336,7 @@ object SMap {
       if (e0 eq entry) e1 else e0
   }
 
-  final case class Leaf2Plus[K, V](p: Entry[K, V], l: Leaf2[K, V])
+  protected final case class Leaf2Plus[K, V](p: Entry[K, V], l: Leaf2[K, V])
       extends SMap[K, V] {
 
     override def size = p.size + l.e0.size + l.e1.size
@@ -368,7 +365,7 @@ object SMap {
       else if (oldEntry eq l.e0) Leaf2Plus(p, new Leaf2(newEntry, l.e1))
       else Leaf2Plus(p, new Leaf2(l.e0, newEntry))
 
-    override protected def removeEntry(entry: Entry[K, V]): SMap[K, V] =
+    override def removeEntry(entry: Entry[K, V]): SMap[K, V] =
       if (entry eq p) l
       else if (entry eq l.e0)
         (if (p.hash < l.e1.hash) Leaf2(p, l.e1)
@@ -377,8 +374,10 @@ object SMap {
             else new Leaf2(l.e0, p))
   }
 
-  final case class Leaf2PlusPlus[K, V](p: Entry[K, V], l: Leaf2Plus[K, V])
-      extends SMap[K, V] {
+  protected final case class Leaf2PlusPlus[K, V](
+      p: Entry[K, V],
+      l: Leaf2Plus[K, V]
+  ) extends SMap[K, V] {
     override def size: Int = p.size + l.size
 
     override def getMinHashEntryOrNull = {
@@ -458,7 +457,7 @@ object SMap {
             else Leaf2Plus(p, Leaf2(l.l.e0, l.p)))
   }
 
-  final case class Leaf5[K, V](
+  protected final case class Leaf5[K, V](
       e0: Entry[K, V],
       e1: Entry[K, V],
       e2: Entry[K, V],
@@ -511,7 +510,7 @@ object SMap {
         Leaf2PlusPlus(e3, Leaf2Plus(e2, Leaf2(e0, e1)))
   }
 
-  final case class Leaf5Plus[K, V](p: Entry[K, V], l: Leaf5[K, V])
+  protected final case class Leaf5Plus[K, V](p: Entry[K, V], l: Leaf5[K, V])
       extends SMap[K, V] {
 
     override def size = p.size + l.size
@@ -549,7 +548,7 @@ object SMap {
         else Leaf5Plus(p, Leaf5(e0, e1, e2, e3, newEntry))
       }
 
-    override protected def removeEntry(entry: Entry[K, V]): SMap[K, V] =
+    override def removeEntry(entry: Entry[K, V]): SMap[K, V] =
       if (p eq entry) l
       else {
         var p_ = p; val ph = p_.hash
@@ -580,9 +579,11 @@ object SMap {
       }
   }
 
-  final case class Leaf5PlusPlus[K, V](p: Entry[K, V], l: Leaf5Plus[K, V])
-      extends SMap[K, V] {
-    protected override def closeToSplitAndRebalance = true
+  protected final case class Leaf5PlusPlus[K, V](
+      p: Entry[K, V],
+      l: Leaf5Plus[K, V]
+  ) extends SMap[K, V] {
+    override def closeToSplitAndRebalance = true
 
     override def size = p.size + l.size
 
@@ -768,7 +769,7 @@ object SMap {
 
   /** Branch of 2 leafs or branches with entry in the middle
     */
-  final case class Branch2[K, V](
+  protected final case class Branch2[K, V](
       left: SMap[K, V],
       e: Entry[K, V],
       right: SMap[K, V]
@@ -814,7 +815,7 @@ object SMap {
       else
         Branch2(left.replaceEntry(oldEntry, newEntry), e, right)
 
-    override protected def removeEntry(entry: Entry[K, V]) = {
+    override def removeEntry(entry: Entry[K, V]) = {
       // The downward phase for deleting an element from a 2-3 tree is the same as the downward phase
       // for inserting an element except for the case when the element to be deleted is equal to the value in
       // a 2-node or a 3-node. In this case, if the value is not part of a terminal node, the value is replaced
@@ -891,13 +892,17 @@ object SMap {
     }
   }
 
-  final case class Branch3[K, V](
+  protected final case class Branch3[K, V](
       left: SMap[K, V],
       e0: Entry[K, V],
       mid: SMap[K, V],
       e1: Entry[K, V],
       right: SMap[K, V]
   ) extends SMap[K, V] {
-    protected override def closeToSplitAndRebalance = true
+
+    assert(e0.hash < e1.hash)
+
+    override def closeToSplitAndRebalance = true
+
   }
 }
