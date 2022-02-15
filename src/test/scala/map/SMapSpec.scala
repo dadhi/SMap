@@ -83,7 +83,7 @@ class SMapSpec extends AnyFunSuite {
     assert(r.contains(1))
     assert(r.contains(3))
   }
-  test("Can add 4, 5, 6, 7 items to map") {
+  test("Can add 4, 5, 6, 7 items to the map") {
     val m4 = SMap(1 -> "a", 2 -> "b", 3 -> "c", 4 -> "d")
     assert(m4.size == 4)
     assert(m4.contains(4))
@@ -99,6 +99,13 @@ class SMapSpec extends AnyFunSuite {
     val m7 = m6 + (7, "g")
     assert(m7.size == 7)
     assert(m7.contains(7))
+  }
+  test("Can add 8, 9, 10, 11 items to the map") {
+    var m = SMap.empty[Int, String]
+    for (i <- 0 to 10)
+      m = m.updated(i, s"v$i")
+
+    assert(m.size == 11)
   }
 }
 

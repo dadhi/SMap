@@ -394,8 +394,8 @@ object SMap {
       if (hash == p.hash) p else l.getEntryOrNull(hash)
 
     override def addOrGetEntry(entry: Entry[K, V]): SMap[K, V] = {
-      val foundEntry = getEntryOrNull(entry.hash)
-      if (foundEntry ne null) foundEntry
+      val found = getEntryOrNull(entry.hash)
+      if (found ne null) found
       else {
         var lp = l.p; var e0 = l.l.e0; var e1 = l.l.e1
         var p_ = p; val ph = p_.hash; val lph = lp.hash
@@ -486,8 +486,8 @@ object SMap {
     }
 
     override def addOrGetEntry(entry: Entry[K, V]): SMap[K, V] = {
-      val foundEntry = getEntryOrNull(entry.hash)
-      if (foundEntry ne null) foundEntry else Leaf5Plus(entry, this)
+      val found = getEntryOrNull(entry.hash)
+      if (found ne null) found else Leaf5Plus(entry, this)
     }
 
     override def replaceEntry(
@@ -528,8 +528,8 @@ object SMap {
     }
 
     override def addOrGetEntry(entry: Entry[K, V]): SMap[K, V] = {
-      val foundEntry = getEntryOrNull(entry.hash)
-      if (foundEntry ne null) foundEntry else Leaf5PlusPlus(entry, this)
+      val found = getEntryOrNull(entry.hash)
+      if (found ne null) found else Leaf5PlusPlus(entry, this)
     }
 
     override def replaceEntry(
@@ -604,8 +604,8 @@ object SMap {
 
     override def addOrGetEntry(entry: Entry[K, V]) = {
       val hash = entry.hash
-      val foundEntry = getEntryOrNull(hash)
-      if (foundEntry ne null) foundEntry
+      val found = getEntryOrNull(hash)
+      if (found ne null) found
       else {
         val ll = l.l
         var e0 = ll.e0; var e1 = ll.e1; var e2 = ll.e2; var e3 = ll.e3
@@ -672,7 +672,7 @@ object SMap {
         }
 
         if (left) Branch2(Leaf2(e0, e1), e2, l)
-        else if (right) Branch2(l, lp, Leaf2(p_, e))
+        else if (right) Branch2(ll, lp, Leaf2(p_, e))
         else Branch2(Leaf5(e0, e1, e2, e3, e4), lp, Leaf2(p_, e))
       }
     }
@@ -904,5 +904,49 @@ object SMap {
 
     override def closeToSplitAndRebalance = true
 
+    override def size = left.size + e0.size + mid.size + e1.size + right.size
+    override def getMinHashEntryOrNull = left.getMinHashEntryOrNull
+    override def getMaxHashEntryOrNull = right.getMaxHashEntryOrNull
+
+    override def getEntryOrNull(hash: Int) =
+      if (hash > e1.hash) right.getEntryOrNull(hash)
+      else if (hash < e0.hash) left.getEntryOrNull(hash)
+      else if (hash == e0.hash) e0
+      else if (hash == e1.hash) e1
+      else mid.getEntryOrNull(hash)
+
+    override def addOrGetEntry(entry: Entry[K, V]) = {
+      val hash = entry.hash; val h0 = e0.hash; val h1 = e1.hash
+      if (hash > h1)
+        right.addOrGetEntry(entry) match {
+          case e: Entry[K, V] => e
+          case b2: Branch2[K, V] if (right.closeToSplitAndRebalance) =>
+            Branch2(Branch2(left, e0, mid), e1, b2)
+          case r =>
+            Branch3(left, e0, mid, e1, r)
+        }
+      else if (hash < h0)
+        left.addOrGetEntry(entry) match {
+          case e: Entry[K, V] => e
+          case b2: Branch2[K, V] if (left.closeToSplitAndRebalance) =>
+            Branch2(b2, e0, Branch2(mid, e1, right))
+          case l =>
+            Branch3(l, e0, mid, e1, right)
+        }
+      else if (hash > h0 && hash < h1)
+        mid.addOrGetEntry(entry) match {
+          case e: Entry[K, V] => e
+          case b2: Branch2[K, V] if (mid.closeToSplitAndRebalance) =>
+            Branch2(
+              Branch2(left, e0, b2.left),
+              b2.e,
+              new Branch2(b2.right, e1, right)
+            )
+          case m =>
+            Branch3(left, e0, m, e1, right)
+        }
+      else if (hash == h0) e0
+      else e1
+    }
   }
 }
