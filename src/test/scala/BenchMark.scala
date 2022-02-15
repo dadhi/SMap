@@ -1,20 +1,39 @@
+import speedy.SMap
 import org.scalatest.funsuite._
 import org.scalameter._
 
-class BenchMark extends AnyFunSuite {
-  test("Range") {
-    val time = config(
-      Key.exec.benchRuns := 10,
-      Key.verbose := true
-    ) withWarmer {
-      new Warmer.Default
-    } withMeasurer {
-      new Measurer.IgnoringGC
+class Benchmark extends AnyFunSuite {
+
+  val bm = config(
+    Key.exec.benchRuns := 20,
+    Key.verbose := true
+  ) withWarmer {
+    new Warmer.Default
+  } withMeasurer {
+    new Measurer.IgnoringGC
     // } withMeasurer {
     //   new Measurer.MemoryFootprint
-    } measure {
-      for (i <- 0 until 10000) yield i
+  }
+
+  val mapSize = 100
+
+  test("Add items to Map") {
+    val result = bm measure {
+      var m = Map.empty[Int, String]
+      for (i <- 0 until mapSize)
+        m = m + (i -> "m")
+      m
     }
-    println(s"Time: $time")
+    println(s"Adding 10 items to Map: $result")
+  }
+
+  test("Add items to SMap") {
+    val result = bm measure {
+      var m = SMap.empty[Int, String]
+      for (i <- 0 until mapSize)
+        m = m + (i -> "s")
+      m
+    }
+    println(s"Adding 100 items to SMap: $result")
   }
 }
