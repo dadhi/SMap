@@ -1,6 +1,5 @@
-ThisBuild / version := "1.0.0-preview-01"
 ThisBuild / scalaVersion := "2.13.6"
-ThisBuild / organization := "com.dadhi"
+ThisBuild / organization := "dadhi"
 
 Test / parallelExecution := false
 
@@ -8,17 +7,21 @@ val scalaTest = "org.scalatest" %% "scalatest" % "3.2.7"
 val scalaMeter = "com.storm-enroute" %% "scalameter" % "0.21"
 val scalaMeterCore = "com.storm-enroute" %% "scalameter-core" % "0.21"
 
+val projScalacOptions = List(
+  "-unchecked",
+  "-deprecation",
+  "-language:_",
+  "-feature",
+  "-Xlint:_",
+  "-encoding",
+  "UTF-8"
+)
+
 lazy val speedy = (project in file("."))
   .settings(
     name := "Speedy",
-    scalacOptions ++= List(
-      "-unchecked",
-      "-deprecation", 
-      "-language:_",
-      "-feature", 
-      "-Xlint:_",
-      "-encoding", "UTF-8"
-      ),
+    version := "1.0.0-preview-01",
+    scalacOptions := projScalacOptions,
     libraryDependencies += scalaTest % Test,
     resolvers += "Sonatype OSS Snapshots" at
       "https://oss.sonatype.org/content/repositories/releases",
