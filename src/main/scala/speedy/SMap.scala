@@ -382,12 +382,12 @@ object SMap {
     override def size: Int = p.size + l.size
 
     override def getMinHashEntryOrNull = {
-      var m = l.getMinHashEntryOrNull
+      val m = l.getMinHashEntryOrNull
       if (p.hash < m.hash) p else m
     }
 
     override def getMaxHashEntryOrNull = {
-      var m = l.getMaxHashEntryOrNull
+      val m = l.getMaxHashEntryOrNull
       if (p.hash > m.hash) p else m
     }
 
@@ -474,8 +474,6 @@ object SMap {
     override def size = e0.size + e1.size + e2.size + e3.size + e4.size
     override def getMinHashEntryOrNull = e0
     override def getMaxHashEntryOrNull = e4
-
-    def ??[T <: AnyRef](a: T, b: => T): T = if (a ne null) a else b
 
     override def getEntryOrNull(hash: Int) = hash match {
       case e0.hash => e0
@@ -685,7 +683,7 @@ object SMap {
         Leaf5PlusPlus(p, new Leaf5Plus(newEntry, l.l))
       else {
         val lp = l.p; val ll = l.l
-        var e0 = ll.e0; val e1 = ll.e1; val e2 = ll.e2; val e3 = ll.e3
+        val e0 = ll.e0; val e1 = ll.e1; val e2 = ll.e2; val e3 = ll.e3
         val e4 = ll.e4
         if (oldEntry eq e0)
           Leaf5PlusPlus(
@@ -966,7 +964,7 @@ object SMap {
       // case 1 downward:
       // swap the predecessor entry (max left entry) with the mid entry,
       // then proceed to remove the predecessor from the Left branch
-      val h = entry.hash; var h0 = e0.hash; var h1 = e1.hash
+      val h = entry.hash; val h0 = e0.hash; val h1 = e1.hash
       if (h <= h0) {
         val leftMaxEntry = if (h == h0) left.getMaxHashEntryOrNull else e0
         val newLeft = left.removeEntry(if (h == h0) leftMaxEntry else entry)

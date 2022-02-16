@@ -1,5 +1,5 @@
 import speedy.SMap
-import org.scalatest._, org.scalatest.funsuite._
+import org.scalatest.funsuite._
 
 class SMapSpec extends AnyFunSuite {
   test("Empty map is empty map") {
@@ -88,15 +88,15 @@ class SMapSpec extends AnyFunSuite {
     assert(m4.size == 4)
     assert(m4.contains(4))
 
-    val m5 = m4 + (5, "e") 
+    val m5 = m4 + ((5, "e")) 
     assert(m5.size == 5)
     assert(m5.contains(5))
 
-    val m6 = m5 + (6, "f") 
+    val m6 = m5 + ((6, "f"))
     assert(m6.size == 6)
     assert(m6.contains(6))
 
-    val m7 = m6 + (7, "g")
+    val m7 = m6 + ((7, "g"))
     assert(m7.size == 7)
     assert(m7.contains(7))
   }

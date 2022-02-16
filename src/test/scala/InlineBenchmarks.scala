@@ -2,11 +2,11 @@ import speedy.SMap
 import org.scalatest.funsuite._
 import org.scalameter._
 
-class Benchmark extends AnyFunSuite {
+class InlineBenchmarks extends AnyFunSuite {
 
   val bm = config(
     Key.exec.benchRuns := 20,
-    Key.verbose := true
+    Key.verbose := false
   ) withWarmer {
     new Warmer.Default
   } withMeasurer {
@@ -21,7 +21,7 @@ class Benchmark extends AnyFunSuite {
     val result = bm measure {
       var m = Map.empty[Int, String]
       for (i <- 0 until mapSize)
-        m = m + (i -> "m")
+        m = m.updated(i, "m")
       m
     }
     println(s"Adding 100 items to Map: $result")
@@ -31,7 +31,7 @@ class Benchmark extends AnyFunSuite {
     val result = bm measure {
       var m = SMap.empty[Int, String]
       for (i <- 0 until mapSize)
-        m = m + (i -> "s")
+        m = m + ((i -> "s"))
       m
     }
     println(s"Adding 100 items to SMap: $result")
