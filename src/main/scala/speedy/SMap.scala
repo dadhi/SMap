@@ -848,7 +848,8 @@ object SMap {
                   Branch2(b3.right, e, newRight)
                 )
               // the the hole has a 2-node as a parent and a 2-node as a sibling:
-              case b2: Branch2[K, V] =>
+              case _ =>
+                val b2 = left.asInstanceOf[Branch2[K, V]]
                 Branch3(b2.left, b2.e, b2.right, e, newRight)
             }
           case _ => Branch2(left, e, newRight)
@@ -881,8 +882,10 @@ object SMap {
                   Branch2(b3.mid, b3.e1, b3.right)
                 )
               // the the hole has a 2-node as a parent and a 2-node as a sibling.
-              case b2: Branch2[K, V] =>
+              case _ => {
+                val b2 = left.asInstanceOf[Branch2[K, V]]
                 Branch3(newLeft, newMidEntry, b2.left, b2.e, b2.right)
+              }
             }
           case _ =>
             Branch2(newLeft, newMidEntry, right)
@@ -994,12 +997,14 @@ object SMap {
                   right
                 )
               // the hole has a 3-node as a parent and a 2-node as a sibling.
-              case b2: Branch2[K, V] =>
+              case _ => {
+                val b2 = left.asInstanceOf[Branch2[K, V]]
                 Branch2(
                   Branch3(newLeft, leftMaxEntry, b2.left, b2.e, b2.right),
                   e1,
                   right
                 )
+              }
             }
           case _ =>
             Branch3(newLeft, leftMaxEntry, mid, e1, right)
@@ -1031,12 +1036,14 @@ object SMap {
                   Branch2(b3.mid, b3.e1, b3.right)
                 )
               // the hole has a 3-node as a parent and a 2-node as a sibling.
-              case b2: Branch2[K, V] =>
+              case _ => {
+                val b2 = left.asInstanceOf[Branch2[K, V]]
                 Branch2(
                   left,
                   e0,
                   Branch3(newMid, midMaxEntry, b2.left, b2.e, b2.right)
                 )
+              }
             }
           case _ => Branch3(left, e0, newMid, midMaxEntry, right)
         }
@@ -1063,12 +1070,14 @@ object SMap {
                   b3.e1,
                   Branch2(b3.right, e1, newRight)
                 )
-              case b2: Branch2[K, V] =>
+              case _ => {
+                val b2 = left.asInstanceOf[Branch2[K, V]]
                 Branch2(
                   left,
                   e0,
                   Branch3(b2.left, b2.e, b2.right, e1, newRight)
                 )
+              }
             }
           case _ =>
             Branch3(left, e0, mid, e1, newRight)
