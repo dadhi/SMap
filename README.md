@@ -10,5 +10,10 @@ Btw, **S** in Map is for **Speedy**.
 
 TBD:
 
-- [ ] Porting the minimal ImHashMap to SMap enough to test addition and lookup and benchmark with *scalameter*.
-- [ ] Create and distribute the package (learn in the process).
+- [X] Port ImHashMap to SMap with complete addition and lookup ops and minimal tests for sanity
+- [X] Benchmark with *ScalaMeter*.
+- [X] Benchmark with *JMH*
+- [ ] Port the rest of the methods including foreach
+- [ ] Port *CsCheck* test to *ScalaCheck*
+- [ ] Conform to `immutable.Map` trait as much as possible
+- [ ] Publish the package with initial version
