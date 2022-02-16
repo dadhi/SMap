@@ -8,7 +8,7 @@ The SMap is based on the ImMap from my .NET C# library https://github.com/dadhi/
 
 Btw, **S** in Map is for **Speedy**.
 
-TBD:
+### Goals
 
 - [X] Port ImHashMap to SMap with complete addition and lookup ops and minimal tests for sanity
 - [X] Benchmark with *ScalaMeter*.
