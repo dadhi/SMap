@@ -11,7 +11,14 @@ val scalaMeterCore = "com.storm-enroute" %% "scalameter-core" % "0.21"
 lazy val speedy = (project in file("."))
   .settings(
     name := "Speedy",
-    scalacOptions := List("-feature", "-Xlint", "-deprecation", "-unchecked"),
+    scalacOptions ++= List(
+      "-unchecked",
+      "-deprecation", 
+      "-language:_",
+      "-feature", 
+      "-Xlint:_",
+      "-encoding", "UTF-8"
+      ),
     libraryDependencies += scalaTest % Test,
     resolvers += "Sonatype OSS Snapshots" at
       "https://oss.sonatype.org/content/repositories/releases",

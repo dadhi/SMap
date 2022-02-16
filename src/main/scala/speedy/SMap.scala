@@ -584,7 +584,7 @@ object SMap {
   ) extends SMap[K, V] {
     override def closeToSplitAndRebalance = true
 
-    override def size = p.size + l.size
+    override def size = p.size + l.p.size + l.l.size
 
     override def getMinHashEntryOrNull = {
       val m = l.getMinHashEntryOrNull
@@ -976,7 +976,6 @@ object SMap {
             mid match {
               case _: Leaf5PlusPlus[K, V] => {
                 val midLeftEntry = mid.getMinHashEntryOrNull
-                // todo: @fix what if mid is Entry (it is not the case for Branch2, otherwise it would be a Leaf)?
                 val newMid = mid.removeEntry(midLeftEntry)
                 Branch3(leftMaxEntry, midLeftEntry, newMid, e1, right)
               }
@@ -1017,7 +1016,6 @@ object SMap {
             right match {
               case _: Leaf5PlusPlus[K, V] => {
                 val rightMinEntry = right.getMinHashEntryOrNull
-                // todo: @fix what if right is Entry (it is not the case for Branch2, otherwise it would be a Leaf)?
                 val newRight = right.removeEntry(rightMinEntry)
                 Branch3(left, e0, midMaxEntry, rightMinEntry, newRight)
               }
@@ -1054,7 +1052,6 @@ object SMap {
             mid match {
               case _: Leaf5PlusPlus[K, V] => {
                 val midMaxEntry = mid.getMaxHashEntryOrNull
-                // todo: @fix what if mid is Entry (it is not the case for Branch2, otherwise it would be a Leaf)?
                 val newMid = mid.removeEntry(midMaxEntry)
                 Branch3(left, e0, newMid, midMaxEntry, e1)
               }
