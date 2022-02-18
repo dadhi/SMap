@@ -10,7 +10,7 @@ import scala.reflect.ClassTag
   * and update it later without worries of SMap structure additions or
   * modifications.
   */
-trait SMap[K, V] {
+sealed trait SMap[K, V] {
   import SMap._
 
   /** Indicates that the map is empty
@@ -147,7 +147,6 @@ trait SMap[K, V] {
   def removed(key: K) = if (isEmpty) this
   else
     getEntryOrNull(key.hashCode) match {
-      case e: KVEntry[K, V] => removeEntry(e)
       case e: HashConflictingEntry[K, V] => {
         val cs = e.conflicts
         val i = cs.indexWhere(_.key == key)
@@ -167,6 +166,7 @@ trait SMap[K, V] {
           replaceEntry(e, entryToReplace)
         } else this
       }
+      case e: Entry[K, V] => removeEntry(e)
       case _ => this
     }
 }
