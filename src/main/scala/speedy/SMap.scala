@@ -65,16 +65,6 @@ trait SMap[K, V] {
       ): KVEntry[K, V]
     }
 
-  /** Adds or updates (no in-place mutation) the map with the new entry, always
-    * returning a new map
-    */
-  def addOrUpdateEntry(newEntry: KVEntry[K, V]): SMap[K, V] =
-    addOrGetEntry(newEntry) match {
-      case entry: Entry[K, V] if (entry ne newEntry) =>
-        replaceEntry(entry, entry.update(newEntry))
-      case newMap => newMap
-    }
-
   def get(key: K): Option[V] = if (isEmpty) None
   else
     getEntryOrNull(key.hashCode) match {
@@ -98,8 +88,14 @@ trait SMap[K, V] {
   /** Creates a new map obtained by updating this map with a given key/value
     * pair.
     */
-  def updated(key: K, value: V): SMap[K, V] =
-    addOrUpdateEntry(newEntry(key, value))
+  def updated(key: K, value: V): SMap[K, V] = {
+      val e = newEntry(key, value)
+      addOrGetEntry(e) match {
+      case entry: Entry[K, V] if (entry ne e) =>
+        replaceEntry(entry, entry.update(e))
+      case newMap => newMap
+    }
+  }
 
   /** Update a mapping for the specified key and its current optionally-mapped
     * value (`Some` if there is current mapping, `None` if not).
@@ -190,7 +186,7 @@ object SMap {
 
   def apply[K, V](items: (K, V)*): SMap[K, V] = {
     var m = empty[K, V]
-    for (i <- items) m = m.addOrUpdateEntry(newEntry(i))
+    for (i <- items) m = m.updated(i._1, i._2)
     m
   }
 
