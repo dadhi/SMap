@@ -13,6 +13,7 @@ Btw, **S** in Map is for **Speedy**.
 - [X] Port ImHashMap to SMap with complete addition and lookup ops and minimal tests for sanity
 - [X] Benchmark with *ScalaMeter* -> so far inconclusive results
 - [X] Benchmark with *JMH* -> initial results are [here](https://jmh.morethan.io/?source=https://raw.githubusercontent.com/dadhi/SMap/main/benchmarks/jmh-results.json)
+- [ ] Optimize the entry footprint for the Int keys
 - [ ] Port the rest of the methods including foreach
 - [ ] Port *CsCheck* test to *ScalaCheck*
 - [ ] Conform to `immutable.Map` trait as much as possible
