@@ -69,7 +69,7 @@ sealed trait SMap[K, V] {
   else
     getEntryOrNull(key.hashCode) match {
       case e: Entry[K, V] => e.getValue(key)
-      case _ => None
+      case _              => None
     }
 
   def getOrElse[V1 >: V](key: K, default: => V1): V1 = get(key) match {
@@ -87,10 +87,10 @@ sealed trait SMap[K, V] {
     * pair.
     */
   def updated(key: K, value: V): SMap[K, V] = {
-    val e = newEntry(key, value)
-    addOrGetEntry(e) match {
-      case entry: Entry[K, V] if (entry ne e) =>
-        replaceEntry(entry, entry.update(e))
+    val entry = newEntry(key, value)
+    addOrGetEntry(entry) match {
+      case found: Entry[K, V] if (found ne entry) =>
+        replaceEntry(found, found.replaceOrAdd(key, entry))
       case newMap => newMap
     }
   }
@@ -138,27 +138,14 @@ sealed trait SMap[K, V] {
   def removed(key: K): SMap[K, V] = if (isEmpty) this
   else
     getEntryOrNull(key.hashCode) match {
-      case e: HashConflictingEntry[K, V] => {
-        val cs = e.conflicts
-        val i = cs.indexWhere(_.key == key)
-        if (i != -1) {
-          val entryToReplace =
-            if (cs.length == 2)
-              if (i == 0) cs(1) else cs(0)
-            else {
-              val newConflicts = new Array[KVEntry[K, V]](cs.length - 1)
-              var j = 0
-              for (item <- cs if j != i) {
-                newConflicts(j) = item
-                j += 1
-              }
-              HashConflictingEntry(e.hash, newConflicts)
-            }
-          replaceEntry(e, entryToReplace)
-        } else this
+      case e: Entry[K, V] => {
+        val entryWithoutKey = e.tryEvict(key)
+        if (entryWithoutKey eq e)
+          removeEntry(e)
+        else
+          replaceEntry(e, entryWithoutKey)
       }
-      case e: Entry[K, V] => removeEntry(e)
-      case _              => this
+      case _ => this
     }
 }
 
@@ -166,14 +153,15 @@ object SMap {
 
   case object Empty extends SMap[Any, Nothing]
 
-  def empty[K, V]: SMap[K, V] = Empty.asInstanceOf[SMap[K, V]]
+  @`inline` def empty[K, V]: SMap[K, V] = Empty.asInstanceOf[SMap[K, V]]
 
-  @`inline` def newEntry[K, V](key: K, value: V): KVEntry[K, V] =
+  @`inline` def newEntry[K, V](key: K, value: V): Entry[K, V] =
     KVEntry(key.hashCode, key, value)
 
-  def newEntry[K, V](item: (K, V)): KVEntry[K, V] = newEntry(item._1, item._2)
+  @`inline` def newEntry[V](key: Int, value: V): Entry[Int, V] =
+    VEntry(key, value)
 
-  def apply[K, V](item: (K, V)): SMap[K, V] = newEntry(item)
+  @`inline` def apply[K, V](item: (K, V)): SMap[K, V] = newEntry(item._1, item._2)
 
   def apply[K, V](items: (K, V)*): SMap[K, V] = {
     var m = empty[K, V]
@@ -183,6 +171,7 @@ object SMap {
 
   protected abstract class Entry[K, V](val hash: Int) extends SMap[K, V] {
 
+    override def size: Int = 1
     override def getMinHashEntryOrNull: Entry[K, V] = this
     override def getMaxHashEntryOrNull: Entry[K, V] = this
     override def getEntryOrNull(hash: Int): Entry[K, V] =
@@ -192,9 +181,15 @@ object SMap {
       */
     def getValue(key: K): Option[V]
 
-    /** Updating the entry with the new one
+    /** Updating the entry with the new one. It cannot return an empty map.
       */
-    def update(newEntry: KVEntry[K, V]): Entry[K, V]
+    def replaceOrAdd(key: K, entry: Entry[K, V]): Entry[K, V]
+
+    /** Abstracts eviction of the key from the entry. Normally it will keep the
+      * entry because the key is part of it. But for multi-key entry it produce
+      * another entry without the key.
+      */
+    def tryEvict(key: K): Entry[K, V] = this
 
     // /** Updating the entry with the new one using the `updateOrKeep` method
     //   */
@@ -228,17 +223,39 @@ object SMap {
     }
   }
 
+  final case class VEntry[V](override val hash: Int, value: V)
+      extends Entry[Int, V](hash) {
+
+    override def getValue(key: Int): Option[V] =
+      if (key == hash) Some(value) else None
+
+    override def replaceOrAdd(key: Int, entry: Entry[Int, V]): Entry[Int, V] =
+      entry
+
+    //   override def updateOrKeep[S](
+    //       state: S,
+    //       newEntry: KVEntry[K, V],
+    //       updateOrKeep: UpdaterOrKeeper[S]
+    //   ): Entry[K, V] =
+    //     if (this.key != newEntry.key)
+    //       HashConflictingEntry(this.hash, Array(newEntry, this))
+    //     else if (updateOrKeep(state, this, newEntry) ne this) newEntry
+    //     else this
+  }
+
   final case class KVEntry[K, V](override val hash: Int, key: K, value: V)
       extends Entry[K, V](hash) {
-
-    override def size: Int = 1
 
     override def getValue(key: K): Option[V] =
       if (this.key == key) Some(value) else None
 
-    override def update(newEntry: KVEntry[K, V]): Entry[K, V] =
-      if (key == newEntry.key) newEntry
-      else HashConflictingEntry(hash, Array(newEntry, this))
+    override def replaceOrAdd(key: K, entry: Entry[K, V]): Entry[K, V] =
+      if (this.key == key) entry
+      else {
+        // todo: @safety try to remove asInstanceOf here
+        val newEntry = entry.asInstanceOf[KVEntry[K, V]]
+        HashConflictingEntry(hash, Array(newEntry, this))
+      }
 
     //   override def updateOrKeep[S](
     //       state: S,
@@ -270,9 +287,30 @@ object SMap {
     override def getValue(key: K): Option[V] =
       conflicts.find(_.key == key).map(_.value)
 
-    override def update(newEntry: KVEntry[K, V]): Entry[K, V] = {
-      val i = conflicts.indexWhere(_.key == newEntry.key)
-      HashConflictingEntry(hash, appendOrReplace(conflicts, newEntry, i))
+    override def replaceOrAdd(key: K, entry: Entry[K, V]): Entry[K, V] = {
+      val i = conflicts.indexWhere(_.key == key)
+      // todo: @safety try to remove asInstanceOf here
+      val newEntry = entry.asInstanceOf[KVEntry[K, V]]
+      copy(conflicts = appendOrReplace(conflicts, newEntry, i))
+    }
+
+    override def tryEvict(key: K): Entry[K, V] = {
+      val cs = conflicts
+      val i = cs.indexWhere(_.key == key)
+      if (i == -1) this
+      else {
+        if (cs.length == 2)
+          if (i == 0) cs(1) else cs(0)
+        else {
+          val newConflicts = new Array[KVEntry[K, V]](cs.length - 1)
+          var j = 0
+          for (item <- cs if j != i) {
+            newConflicts(j) = item
+            j += 1
+          }
+          HashConflictingEntry(hash, newConflicts)
+        }
+      }
     }
 
     //   override def updateOrKeep[S](
@@ -777,7 +815,7 @@ object SMap {
           case b2: Branch2[K, V] if (right.closeToSplitAndRebalance) =>
             Branch3(left, e, b2.left, b2.e, b2.right)
           // it is fine to return the possibly added entry (e.g. `HashConflictingEntry`)
-          // because on the consumer side we will call the `replaceEntry` for such case
+          // because on the consumer side we will call the `replaceEntry` for such case.
           case found: Entry[K, V] => found
           case added              => Branch2(left, e, added)
         }

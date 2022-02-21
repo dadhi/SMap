@@ -5,7 +5,7 @@ import org.scalameter._
 class InlineBenchmarks extends AnyFunSuite {
 
   val bm = config(
-    Key.exec.benchRuns := 20,
+    Key.exec.benchRuns := 5,
     Key.verbose := false
   ) withWarmer {
     new Warmer.Default

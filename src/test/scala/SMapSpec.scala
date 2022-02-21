@@ -88,7 +88,7 @@ class SMapSpec extends AnyFunSuite {
     assert(m4.size == 4)
     assert(m4.contains(4))
 
-    val m5 = m4 + ((5, "e")) 
+    val m5 = m4 + ((5, "e"))
     assert(m5.size == 5)
     assert(m5.contains(5))
 
