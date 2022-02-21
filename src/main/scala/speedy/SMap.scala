@@ -130,19 +130,12 @@ sealed trait SMap[K, V] {
 
   /** Tests whether this map contains a key.
     */
-  def contains(key: K): Boolean = if (isEmpty) false
-  else
-    getEntryOrNull(key.hashCode) match {
-      case KVEntry(_, k, _) => k == key
-      case HashConflictingEntry(_, conflicts) =>
-        conflicts.exists(_.key == key)
-      case _ => false
-    }
+  def contains(key: K): Boolean = get(key).isDefined
 
   /** Returns the new map without the specified hash and key (if found) or
     * returns the same map otherwise
     */
-  def removed(key: K) = if (isEmpty) this
+  def removed(key: K): SMap[K, V] = if (isEmpty) this
   else
     getEntryOrNull(key.hashCode) match {
       case e: HashConflictingEntry[K, V] => {
