@@ -10,7 +10,7 @@ import scala.reflect.ClassTag
   * and update it later without worries of SMap structure additions or
   * modifications.
   */
-sealed trait SMap[K, V] {
+sealed trait SMap[@specialized(Int) K, V] {
   import SMap._
 
   /** Indicates that the map is empty
@@ -86,8 +86,11 @@ sealed trait SMap[K, V] {
   /** Creates a new map obtained by updating this map with a given key/value
     * pair.
     */
-  def updated(key: K, value: V): SMap[K, V] = {
-    val entry = newEntry(key, value)
+  def updated(key: K, value: V): SMap[K, V] =
+    // todo: @wip how to specialize this for Int?
+    updated(key, newEntry(key, value))
+
+  def updated(key: K, entry: Entry[K, V]): SMap[K, V] = {
     addOrGetEntry(entry) match {
       case found: Entry[K, V] if (found ne entry) =>
         replaceEntry(found, found.replaceOrAdd(key, entry))
@@ -106,7 +109,9 @@ sealed trait SMap[K, V] {
     */
   def updatedWith(
       key: K
-  )(remappingFunction: Option[V] => Option[V]): SMap[K, V] = {
+  )(
+      remappingFunction: Option[V] => Option[V]
+  ): SMap[K, V] = {
     val oldValue = get(key)
     val newValue = remappingFunction(oldValue)
     (oldValue, newValue) match {
@@ -151,21 +156,33 @@ sealed trait SMap[K, V] {
 
 object SMap {
 
-  case object Empty extends SMap[Any, Nothing]
+  private object Empty extends SMap[Any, Nothing]
 
-  @`inline` def empty[K, V]: SMap[K, V] = Empty.asInstanceOf[SMap[K, V]]
+  def empty[K, V]: SMap[K, V] = Empty.asInstanceOf[SMap[K, V]]
 
-  @`inline` def newEntry[K, V](key: K, value: V): Entry[K, V] =
+  @`inline` def newEntry[K, V](key: K, value: V): Entry[K, V] = 
     KVEntry(key.hashCode, key, value)
 
   @`inline` def newEntry[V](key: Int, value: V): Entry[Int, V] =
     VEntry(key, value)
 
-  @`inline` def apply[K, V](item: (K, V)): SMap[K, V] = newEntry(item._1, item._2)
+  def apply[K, V](item: (K, V)): SMap[K, V] = 
+    newEntry(item._1, item._2)
+
+  def apply[V](item: (Int, V))(implicit d: DummyImplicit): SMap[Int, V] =
+    newEntry(item._1, item._2)
 
   def apply[K, V](items: (K, V)*): SMap[K, V] = {
     var m = empty[K, V]
-    for (i <- items) m = m.updated(i._1, i._2)
+    for ((key, value) <- items)
+      m = m.updated(key, newEntry(key, value))
+    m
+  }
+
+  def apply[V](items: (Int, V)*)(implicit d: DummyImplicit): SMap[Int, V] = {
+    var m = empty[Int, V]
+    for ((key, value) <- items) 
+      m = m.updated(key, newEntry(key, value))
     m
   }
 

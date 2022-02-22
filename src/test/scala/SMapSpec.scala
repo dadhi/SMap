@@ -26,6 +26,11 @@ class SMapSpec extends AnyFunSuite {
     val m = SMap(1 -> "a", 1 -> "b")
     assert(m.size == 1)
     assert(m(1) == "b")
+
+    val m2 = SMap(1 -> "a", 1 -> "b", 2 -> "c")
+    assert(m2.size == 2)
+    assert(m2(1) == "b")
+    assert(m2(2) == "c")
   }
   test(
     "Adding two items with the same hash but different keys should add both items"
