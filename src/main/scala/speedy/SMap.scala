@@ -53,36 +53,6 @@ sealed trait SMap[K, V] {
     */
   protected def removeEntry(entry: Entry[K, V]): SMap[K, V] = this
 
-  // /** The function is supposed to return the entry different from the oldEntry
-  //   * to update, and return the oldEntry to keep it.
-  //   */
-  // type UpdaterOrKeeper[S] =
-  //   ((S, KVEntry[K, V], KVEntry[K, V]) => KVEntry[K, V]) {
-  //     def apply(
-  //         state: S,
-  //         oldEntry: KVEntry[K, V],
-  //         newEntry: KVEntry[K, V]
-  //     ): KVEntry[K, V]
-  //   }
-
-  def get(key: K): Option[V] =
-    getEntryOrNull(key.hashCode) match {
-      case e: Entry[K, V] => e.getValue(key)
-      case _              => None
-    }
-
-  def getOrElse[V1 >: V](key: K, default: => V1): V1 =
-    get(key) match {
-      case Some(v) => v
-      case None    => default
-    }
-
-  @throws[NoSuchElementException]
-  def apply(key: K): V = get(key) match {
-    case Some(value) => value
-    case None        => default(key)
-  }
-
   /** Creates a new map obtained by updating this map with a given key/value
     * pair.
     */
@@ -97,44 +67,9 @@ sealed trait SMap[K, V] {
     }
   }
 
-  /** Update a mapping for the specified key and its current optionally-mapped
-    * value (`Some` if there is current mapping, `None` if not).
-    *
-    * If the remapping function returns `Some(v)`, the mapping is updated with
-    * the new value `v`. If the remapping function returns `None`, the mapping
-    * is removed (or remains absent if initially absent). If the function itself
-    * throws an exception, the exception is re-thrown, and the current mapping
-    * is left unchanged.
-    */
-  def updatedWith(
-      key: K
-  )(
-      remappingFunction: Option[V] => Option[V]
-  ): SMap[K, V] = {
-    val oldValue = get(key)
-    val newValue = remappingFunction(oldValue)
-    (oldValue, newValue) match {
-      case (None, None)    => this
-      case (Some(_), None) => removed(key)
-      case (_, Some(v))    => updated(key, v)
-    }
-  }
-
   /** Alias for `updated`
     */
   def +(kv: (K, V)): SMap[K, V] = updated(kv._1, kv._2)
-
-  /** Defines the default value computation for the map, returned when a key is
-    * not found. The method implemented here throws an exception, but it might
-    * be overridden in subclasses.
-    */
-  @throws[NoSuchElementException]
-  def default(key: K): V =
-    throw new NoSuchElementException("key not found: " + key)
-
-  /** Tests whether this map contains a key.
-    */
-  def contains(key: K): Boolean = get(key).isDefined
 
   /** Returns the new map without the specified hash and key (if found) or
     * returns the same map otherwise
@@ -185,6 +120,78 @@ object SMap {
     for ((key, value) <- items)
       m = m.updated(key, createEntry(key, value))
     m
+  }
+
+  @throws[NoSuchElementException]
+  def default[K](key: K): Nothing =
+    throw new NoSuchElementException("key not found: " + key)
+
+  implicit class Extensions[K, V](val m: SMap[K, V]) extends AnyVal {
+    def get(key: K): Option[V] =
+      m.getEntryOrNull(key.hashCode) match {
+        case e: Entry[K, V] => e.getValue(key)
+        case _              => None
+      }
+
+    def getOrElse[V1 >: V](key: K, default: => V1): V1 =
+      get(key).getOrElse(default)
+
+    /** Tests whether this map contains a key.
+      */
+    def contains(key: K): Boolean = get(key).isDefined
+
+    /** Defines the default value computation for the map, returned when a key
+      * is not found. The method implemented here throws an exception, but it
+      * might be overridden in subclasses.
+      */
+    @throws[NoSuchElementException]
+    def apply(key: K): V =
+      get(key) match {
+        case Some(value) => value
+        case None        => default(key)
+      }
+
+    /** Update a mapping for the specified key and its current optionally-mapped
+      * value (`Some` if there is current mapping, `None` if not).
+      *
+      * If the remapping function returns `Some(v)`, the mapping is updated with
+      * the new value `v`. If the remapping function returns `None`, the mapping
+      * is removed (or remains absent if initially absent). If the function
+      * itself throws an exception, the exception is re-thrown, and the current
+      * mapping is left unchanged.
+      */
+    def updatedWith(
+        key: K
+    )(
+        remappingFunction: Option[V] => Option[V]
+    ): SMap[K, V] = {
+      val oldValue = get(key)
+      val newValue = remappingFunction(oldValue)
+      (oldValue, newValue) match {
+        case (None, None)    => m
+        case (Some(_), None) => m.removed(key)
+        case (_, Some(v))    => m.updated(key, v)
+      }
+    }
+  }
+
+  implicit class IntKeyExtensions[V](val m: SMap[Int, V]) extends AnyVal {
+    def get(key: Int): Option[V] =
+      m.getEntryOrNull(key) match {
+        case e: VEntry[V] => Some(e.value)
+        case _            => None
+      }
+
+    /** Defines the default value computation for the map, returned when a key
+      * is not found. The method implemented here throws an exception, but it
+      * might be overridden in subclasses.
+      */
+    @throws[NoSuchElementException]
+    def apply(key: Int): V =
+      m.getEntryOrNull(key) match {
+        case e: VEntry[V] => e.value
+        case _            => default(key)
+      }
   }
 
   protected abstract class Entry[K, V](val hash: Int) extends SMap[K, V] {
