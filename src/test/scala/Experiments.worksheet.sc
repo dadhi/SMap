@@ -1,6 +1,11 @@
 import speedy.SMap
 val m = SMap.empty[Int, String]
-// val e = m.updated(1, "a")
+val e = m.updated(1, "a")
+e.getClass.getName
+
+case class Foo[@specialized(Int) T](bar: T)
+Foo(42).getClass.getName
+Foo("").getClass.getName
 
 //-------
 
