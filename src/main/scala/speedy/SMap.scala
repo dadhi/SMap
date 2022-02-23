@@ -87,8 +87,7 @@ sealed trait SMap[@specialized(Int) K, V] {
     * pair.
     */
   def updated(key: K, value: V): SMap[K, V] =
-    // todo: @wip how to specialize this for Int?
-    updated(key, newEntry(key, value))
+    updated(key, createEntry(key, value))
 
   def updated(key: K, entry: Entry[K, V]): SMap[K, V] = {
     addOrGetEntry(entry) match {
@@ -160,29 +159,31 @@ object SMap {
 
   def empty[K, V]: SMap[K, V] = Empty.asInstanceOf[SMap[K, V]]
 
-  @`inline` def newEntry[K, V](key: K, value: V): Entry[K, V] = 
-    KVEntry(key.hashCode, key, value)
+  @`inline` def createEntry[K, V](key: K, value: V): Entry[K, V] = key match {
+    case n: Int => VEntry(n, value).asInstanceOf[Entry[K, V]]
+    case _      => KVEntry(key.hashCode, key, value)
+  }
 
-  @`inline` def newEntry[V](key: Int, value: V): Entry[Int, V] =
+  @`inline` def createEntry[V](key: Int, value: V): Entry[Int, V] =
     VEntry(key, value)
 
-  def apply[K, V](item: (K, V)): SMap[K, V] = 
-    newEntry(item._1, item._2)
+  def apply[K, V](item: (K, V)): SMap[K, V] =
+    createEntry(item._1, item._2)
 
   def apply[V](item: (Int, V))(implicit d: DummyImplicit): SMap[Int, V] =
-    newEntry(item._1, item._2)
+    createEntry(item._1, item._2)
 
   def apply[K, V](items: (K, V)*): SMap[K, V] = {
     var m = empty[K, V]
     for ((key, value) <- items)
-      m = m.updated(key, newEntry(key, value))
+      m = m.updated(key, createEntry(key, value))
     m
   }
 
   def apply[V](items: (Int, V)*)(implicit d: DummyImplicit): SMap[Int, V] = {
     var m = empty[Int, V]
-    for ((key, value) <- items) 
-      m = m.updated(key, newEntry(key, value))
+    for ((key, value) <- items)
+      m = m.updated(key, createEntry(key, value))
     m
   }
 
