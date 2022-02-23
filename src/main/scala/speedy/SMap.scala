@@ -65,17 +65,17 @@ sealed trait SMap[K, V] {
   //     ): KVEntry[K, V]
   //   }
 
-  def get(key: K): Option[V] = if (isEmpty) None
-  else
+  def get(key: K): Option[V] =
     getEntryOrNull(key.hashCode) match {
       case e: Entry[K, V] => e.getValue(key)
       case _              => None
     }
 
-  def getOrElse[V1 >: V](key: K, default: => V1): V1 = get(key) match {
-    case Some(v) => v
-    case None    => default
-  }
+  def getOrElse[V1 >: V](key: K, default: => V1): V1 =
+    get(key) match {
+      case Some(v) => v
+      case None    => default
+    }
 
   @throws[NoSuchElementException]
   def apply(key: K): V = get(key) match {
