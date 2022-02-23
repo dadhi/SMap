@@ -10,7 +10,7 @@ import scala.reflect.ClassTag
   * and update it later without worries of SMap structure additions or
   * modifications.
   */
-sealed trait SMap[@specialized(Int) K, V] {
+sealed trait SMap[K, V] {
   import SMap._
 
   /** Indicates that the map is empty
@@ -187,7 +187,7 @@ object SMap {
     m
   }
 
-  protected abstract class Entry[K, V](val hash: Int) extends SMap[K, V] {
+  protected abstract class Entry[@specialized(Int) K, V](val hash: Int) extends SMap[K, V] {
 
     override def size: Int = 1
     override def getMinHashEntryOrNull: Entry[K, V] = this

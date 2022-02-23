@@ -7,15 +7,12 @@ case class Foo[@specialized(Int) T](bar: T)
 Foo(42).getClass.getName
 Foo("").getClass.getName
 
-//-------
-
-case class XMap[K, +V](k: K, v: V) {
-  def add[V1 >: V](key: K, value: V1): XMap[K, V1] = XMap(key, value)
+trait M[@specialized(Int) K, V]
+object M {
+  abstract class E[K, V](i: Int) extends M[K, V]
+  final case class KVE[K, V](i: Int, k: K) extends E[K, V](i)
+  final case class VE[V](i: Int) extends E[Int, V](i)
 }
 
-class A(i: Int)
-case class B(i: Int) extends A(i + 1)
-
-val x = XMap[Int, A](0, new A(0))
-val b = B(41)
-val x1 = x.add(1, b)
+val s = M.KVE(1, 1)
+s.getClass.getName
