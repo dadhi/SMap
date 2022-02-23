@@ -187,7 +187,7 @@ object SMap {
     m
   }
 
-  protected abstract class Entry[@specialized(Int) K, V](val hash: Int) extends SMap[K, V] {
+  protected abstract class Entry[K, V](val hash: Int) extends SMap[K, V] {
 
     override def size: Int = 1
     override def getMinHashEntryOrNull: Entry[K, V] = this
@@ -270,7 +270,6 @@ object SMap {
     override def replaceOrAdd(key: K, entry: Entry[K, V]): Entry[K, V] =
       if (this.key == key) entry
       else {
-        // todo: @safety try to remove asInstanceOf here
         val newEntry = entry.asInstanceOf[KVEntry[K, V]]
         HashConflictingEntry(hash, Array(newEntry, this))
       }
