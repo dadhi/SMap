@@ -14,7 +14,6 @@ object M {
   final case class VE[V](i: Int) extends E[Int, V](i)
 }
 
-Map(1 -> "a", 2 -> "b").foreach()
 
 val s = M.KVE(1, 1)
 s.getClass.getName

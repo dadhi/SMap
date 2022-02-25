@@ -201,7 +201,32 @@ object SMap {
       */
     def foreach[S](state: S, parents: MapParentStack = null)(
         handler: (Entry[K, V], Int, S) => Unit
-    ): Unit = {}
+    ): S = {
+      if (!map.isEmpty) {
+        var i = 0;
+        if (map.isInstanceOf[Entry[K, V]]) {
+          map match {
+            case kv: KVEntry[K, V] => handler(kv, i, state)
+            case hc: HashConflictingEntry[K, V] =>
+              for (c <- hc.conflicts) {
+                handler(c, i, state)
+                i += 1
+              }
+            case _ => ()
+          }
+        } else {
+          ???
+        }
+        // {
+        //     if (e is ImHashMapEntry<K, V> kv) handler(kv, 0, state);
+        //     else foreach (var c in ((HashConflictingEntry<K, V>)e).Conflicts) handler(c, i++, state);
+        //     return state;
+        // }
+
+        ???
+      }
+      state
+    }
     // /// <summary>
     // /// Depth-first in-order of hash traversal as described in http://en.wikipedia.org/wiki/Tree_traversal.
     // /// The `parents` parameter allows to reuse the stack memory used for the traversal between multiple calls.
