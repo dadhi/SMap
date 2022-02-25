@@ -126,9 +126,28 @@ object SMap {
   def default[K](key: K): Nothing =
     throw new NoSuchElementException("key not found: " + key)
 
-  implicit class Extensions[K, V](val m: SMap[K, V]) extends AnyVal {
+  final class MapParentStack(capacity: Int = 4) {
+
+    var _items: Array[AnyVal] = new Array[AnyVal](capacity)
+
+    def put(item: AnyVal, index: Int): Unit = {
+      if (index >= _items.size) expandItems()
+      _items(index) = item
+    }
+
+    def apply(index: Int) = _items(index)
+
+    private def expandItems(): Unit = {
+      val size = _items.size
+      val newItems = new Array[AnyVal](size << 1) // count * 2
+      _items.copyToArray(newItems)
+      _items = newItems
+    }
+  }
+
+  implicit class Extensions[K, V](val map: SMap[K, V]) extends AnyVal {
     def get(key: K): Option[V] =
-      m.getEntryOrNull(key.hashCode) match {
+      map.getEntryOrNull(key.hashCode) match {
         case e: Entry[K, V] => e.getValue(key)
         case _              => None
       }
@@ -168,19 +187,298 @@ object SMap {
       val oldValue = get(key)
       val newValue = remappingFunction(oldValue)
       (oldValue, newValue) match {
-        case (None, None)    => m
-        case (Some(_), None) => m.removed(key)
-        case (_, Some(v))    => m.updated(key, v)
+        case (None, None)    => map
+        case (Some(_), None) => map.removed(key)
+        case (_, Some(v))    => map.updated(key, v)
       }
     }
+
+    /** Depth-first in-order of hash traversal as described in
+      * http://en.wikipedia.org/wiki/Tree_traversal. The `parents` parameter
+      * allows to reuse the stack memory used for the traversal between multiple
+      * calls. So you may pass the empty `parents` into the first `Enumerate`
+      * and then keep passing the same `parents` into the subsequent calls
+      */
+    def foreach[S](state: S, parents: MapParentStack = null)(
+        handler: (Entry[K, V], Int, S) => Unit
+    ): Unit = {}
+    // /// <summary>
+    // /// Depth-first in-order of hash traversal as described in http://en.wikipedia.org/wiki/Tree_traversal.
+    // /// The `parents` parameter allows to reuse the stack memory used for the traversal between multiple calls.
+    // /// So you may pass the empty `parents` into the first `Enumerate` and then keep passing the same `parents` into the subsequent calls</summary>
+    // public static S ForEach<K, V, S>(this ImHashMap<K, V> map, S state, Action<ImHashMapEntry<K, V>, int, S> handler, MapParentStack parents = null)
+    // {
+    //     if (map == ImHashMap<K, V>.Empty)
+    //         return state;
+    //     var i = 0;
+    //     if (map is ImHashMap<K, V>.Entry e)
+    //     {
+    //         if (e is ImHashMapEntry<K, V> kv) handler(kv, 0, state);
+    //         else foreach (var c in ((HashConflictingEntry<K, V>)e).Conflicts) handler(c, i++, state);
+    //         return state;
+    //     }
+
+    //     var count = 0;
+    //     while (true)
+    //     {
+    //         if (map is ImHashMap<K, V>.Branch2 b2)
+    //         {
+    //             if (parents == null)
+    //                 parents = new MapParentStack();
+    //             parents.Put(map, count++);
+    //             map = b2.Left;
+    //             continue;
+    //         }
+    //         if (map is ImHashMap<K, V>.Branch3 b3)
+    //         {
+    //             if (parents == null)
+    //                 parents = new MapParentStack();
+    //             parents.Put(map, count++);
+    //             map = b3.Left;
+    //             continue;
+    //         }
+
+    //         if (map is ImHashMap<K, V>.Entry l1)
+    //         {
+    //             if (l1 is ImHashMapEntry<K, V> v0) handler(v0, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)l1).Conflicts) handler(c, i++, state);
+    //         }
+    //         else if (map is ImHashMap<K, V>.Leaf2 l2)
+    //         {
+    //             if (l2.Entry0 is ImHashMapEntry<K, V> v0) handler(v0, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)l2.Entry0).Conflicts) handler(c, i++, state);
+    //             if (l2.Entry1 is ImHashMapEntry<K, V> v1) handler(v1, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)l2.Entry1).Conflicts) handler(c, i++, state);
+    //         }
+    //         else if (map is ImHashMap<K, V>.Leaf2Plus1 l21)
+    //         {
+    //             var p  = l21.Plus;
+    //             var ph = p.Hash;
+    //             var l  = l21.L;
+    //             ImHashMap<K, V>.Entry e0 = l.Entry0, e1 = l.Entry1, swap = null;
+    //             if (ph < e1.Hash)
+    //             {
+    //                 swap = e1; e1 = p; p = swap;
+    //                 if (ph < e0.Hash)
+    //                 {
+    //                     swap = e0; e0 = e1; e1 = swap;
+    //                 }
+    //             }
+
+    //             if (e0 is ImHashMapEntry<K, V> v0) handler(v0, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)e0).Conflicts) handler(c, i++, state);
+    //             if (e1 is ImHashMapEntry<K, V> v1) handler(v1, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)e1).Conflicts) handler(c, i++, state);
+    //             if (p  is ImHashMapEntry<K, V> v2) handler(v2, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)p ).Conflicts) handler(c, i++, state);
+    //         }
+    //         else if (map is ImHashMap<K, V>.Leaf2Plus1Plus1 l211)
+    //         {
+    //             var p  = l211.Plus;
+    //             var pp = l211.L.Plus;
+    //             var ph = pp.Hash;
+    //             var l  = l211.L.L;
+    //             ImHashMap<K, V>.Entry e0 = l.Entry0, e1 = l.Entry1, swap = null;
+    //             if (ph < e1.Hash)
+    //             {
+    //                 swap = e1; e1 = pp; pp = swap;
+    //                 if (ph < e0.Hash)
+    //                 {
+    //                     swap = e0; e0 = e1; e1 = swap;
+    //                 }
+    //             }
+
+    //             ph = p.Hash;
+    //             if (ph < pp.Hash)
+    //             {
+    //                 swap = pp; pp = p; p = swap;
+    //                 if (ph < e1.Hash)
+    //                 {
+    //                     swap = e1; e1 = pp; pp = swap;
+    //                     if (ph < e0.Hash)
+    //                     {
+    //                         swap = e0; e0 = e1; e1 = swap;
+    //                     }
+    //                 }
+    //             }
+
+    //             if (e0 is ImHashMapEntry<K, V> v0) handler(v0, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)e0).Conflicts) handler(c, i++, state);
+    //             if (e1 is ImHashMapEntry<K, V> v1) handler(v1, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)e1).Conflicts) handler(c, i++, state);
+    //             if (pp is ImHashMapEntry<K, V> v2) handler(v2, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)pp).Conflicts) handler(c, i++, state);
+    //             if (p  is ImHashMapEntry<K, V> v3) handler(v3, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)p).Conflicts)  handler(c, i++, state);
+    //         }
+    //         else if (map is ImHashMap<K, V>.Leaf5 l5)
+    //         {
+    //             if (l5.Entry0 is ImHashMapEntry<K, V> v0) handler(v0, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)l5.Entry0).Conflicts) handler(c, i++, state);
+    //             if (l5.Entry1 is ImHashMapEntry<K, V> v1) handler(v1, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)l5.Entry1).Conflicts) handler(c, i++, state);
+    //             if (l5.Entry2 is ImHashMapEntry<K, V> v2) handler(v2, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)l5.Entry2).Conflicts) handler(c, i++, state);
+    //             if (l5.Entry3 is ImHashMapEntry<K, V> v3) handler(v3, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)l5.Entry3).Conflicts) handler(c, i++, state);
+    //             if (l5.Entry4 is ImHashMapEntry<K, V> v4) handler(v4, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)l5.Entry4).Conflicts) handler(c, i++, state);
+    //         }
+    //         else if (map is ImHashMap<K, V>.Leaf5Plus1 l51)
+    //         {
+    //             var p  = l51.Plus;
+    //             var ph = p.Hash;
+    //             var l  = l51.L;
+    //             ImHashMap<K, V>.Entry e0 = l.Entry0, e1 = l.Entry1, e2 = l.Entry2, e3 = l.Entry3, e4 = l.Entry4, swap = null;
+    //             if (ph < e4.Hash)
+    //             {
+    //                 swap = e4; e4 = p; p = swap;
+    //                 if (ph < e3.Hash)
+    //                 {
+    //                     swap = e3; e3 = e4; e4 = swap;
+    //                     if (ph < e2.Hash)
+    //                     {
+    //                         swap = e2; e2 = e3; e3 = swap;
+    //                         if (ph < e1.Hash)
+    //                         {
+    //                             swap = e1; e1 = e2; e2 = swap;
+    //                             if (ph < e0.Hash)
+    //                             {
+    //                                 swap = e0; e0 = e1; e1 = swap;
+    //                             }
+    //                         }
+    //                     }
+    //                 }
+    //             }
+
+    //             if (e0 is ImHashMapEntry<K, V> v0) handler(v0, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)e0).Conflicts) handler(c, i++, state);
+    //             if (e1 is ImHashMapEntry<K, V> v1) handler(v1, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)e1).Conflicts) handler(c, i++, state);
+    //             if (e2 is ImHashMapEntry<K, V> v2) handler(v2, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)e2).Conflicts) handler(c, i++, state);
+    //             if (e3 is ImHashMapEntry<K, V> v3) handler(v3, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)e3).Conflicts) handler(c, i++, state);
+    //             if (e4 is ImHashMapEntry<K, V> v4) handler(v4, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)e4).Conflicts) handler(c, i++, state);
+    //             if (p  is ImHashMapEntry<K, V> v5) handler(v5, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)p).Conflicts)  handler(c, i++, state);
+    //         }
+    //         else if (map is ImHashMap<K, V>.Leaf5Plus1Plus1 l511)
+    //         {
+    //             var l = l511.L.L;
+    //             ImHashMap<K, V>.Entry
+    //                 e0 = l.Entry0, e1 = l.Entry1, e2 = l.Entry2, e3 = l.Entry3, e4 = l.Entry4, p = l511.Plus, pp = l511.L.Plus, swap = null;
+    //             var h = pp.Hash;
+    //             if (h < e4.Hash)
+    //             {
+    //                 swap = e4; e4 = pp; pp = swap;
+    //                 if (h < e3.Hash)
+    //                 {
+    //                     swap = e3; e3 = e4; e4 = swap;
+    //                     if (h < e2.Hash)
+    //                     {
+    //                         swap = e2; e2 = e3; e3 = swap;
+    //                         if (h < e1.Hash)
+    //                         {
+    //                             swap = e1; e1 = e2; e2 = swap;
+    //                             if (h < e0.Hash)
+    //                             {
+    //                                 swap = e0; e0 = e1; e1 = swap;
+    //                             }
+    //                         }
+    //                     }
+    //                 }
+    //             }
+
+    //             h = p.Hash;
+    //             if (h < pp.Hash)
+    //             {
+    //                 swap = pp; pp = p; p = swap;
+    //                 if (h < e4.Hash)
+    //                 {
+    //                     swap = e4; e4 = pp; pp = swap;
+    //                     if (h < e3.Hash)
+    //                     {
+    //                         swap = e3; e3 = e4; e4 = swap;
+    //                         if (h < e2.Hash)
+    //                         {
+    //                             swap = e2; e2 = e3; e3 = swap;
+    //                             if (h < e1.Hash)
+    //                             {
+    //                                 swap = e1; e1 = e2; e2 = swap;
+    //                                 if (h < e0.Hash)
+    //                                 {
+    //                                     swap = e0; e0 = e1; e1 = swap;
+    //                                 }
+    //                             }
+    //                         }
+    //                     }
+    //                 }
+    //             }
+
+    //             if (e0 is ImHashMapEntry<K, V> v0) handler(v0, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)e0).Conflicts) handler(c, i++, state);
+    //             if (e1 is ImHashMapEntry<K, V> v1) handler(v1, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)e1).Conflicts) handler(c, i++, state);
+    //             if (e2 is ImHashMapEntry<K, V> v2) handler(v2, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)e2).Conflicts) handler(c, i++, state);
+    //             if (e3 is ImHashMapEntry<K, V> v3) handler(v3, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)e3).Conflicts) handler(c, i++, state);
+    //             if (e4 is ImHashMapEntry<K, V> v4) handler(v4, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)e4).Conflicts) handler(c, i++, state);
+    //             if (pp is ImHashMapEntry<K, V> v5) handler(v5, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)pp).Conflicts) handler(c, i++, state);
+    //             if (p  is ImHashMapEntry<K, V> v6) handler(v6, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)p).Conflicts)  handler(c, i++, state);
+    //         }
+
+    //         if (count == 0)
+    //             break; // we yield the leaf and there is nothing in stack - we are DONE!
+
+    //         var b = parents.Get(--count); // otherwise get the parent
+    //         if (b is ImHashMap<K,V>.Branch2 pb2)
+    //         {
+    //             if (pb2.MidEntry is ImHashMapEntry<K, V> v) handler(v, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)pb2.MidEntry).Conflicts) handler(c, i++, state);
+    //             map = pb2.Right;
+    //         }
+    //         else if (b != _enumerationB3Tombstone)
+    //         {
+    //             var pb3 = (ImHashMap<K, V>.Branch3)b;
+    //             if (pb3.Entry0 is ImHashMapEntry<K, V> v) handler(v, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)pb3.Entry0).Conflicts) handler(c, i++, state);
+    //             map = pb3.Middle;
+    //             parents.Put(_enumerationB3Tombstone, ++count);
+    //             ++count;
+    //         }
+    //         else
+    //         {
+    //             var pb3 = (ImHashMap<K, V>.Branch3)parents.Get(--count);
+    //             if (pb3.Entry1 is ImHashMapEntry<K, V> v) handler(v, i++, state);
+    //             else foreach (var c in ((HashConflictingEntry<K, V>)pb3.Entry1).Conflicts) handler(c, i++, state);
+    //             map = pb3.Right;
+    //         }
+    //     }
+
+    //     return state;
+    // }
+
   }
 
-  implicit class IntKeyExtensions[V](val m: SMap[Int, V]) extends AnyVal {
+  implicit class IntKeyExtensions[V](val map: SMap[Int, V]) extends AnyVal {
     def get(key: Int): Option[V] =
-      m.getEntryOrNull(key) match {
+      map.getEntryOrNull(key) match {
         case e: VEntry[V] => Some(e.value)
         case _            => None
       }
+
+    def getOrElse[V1 >: V](key: Int, default: => V1): V1 =
+      get(key).getOrElse(default)
+
+    /** Tests whether this map contains a key.
+      */
+    def contains(key: Int): Boolean = get(key).isDefined
 
     /** Defines the default value computation for the map, returned when a key
       * is not found. The method implemented here throws an exception, but it
@@ -188,7 +486,7 @@ object SMap {
       */
     @throws[NoSuchElementException]
     def apply(key: Int): V =
-      m.getEntryOrNull(key) match {
+      map.getEntryOrNull(key) match {
         case e: VEntry[V] => e.value
         case _            => default(key)
       }
