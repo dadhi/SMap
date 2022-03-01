@@ -128,9 +128,9 @@ object SMap {
 
   final class MapParentStack(capacity: Int = 4) {
 
-    var _items: Array[AnyVal] = new Array[AnyVal](capacity)
+    var _items: Array[AnyRef] = new Array[AnyRef](capacity)
 
-    def put(item: AnyVal, index: Int): Unit = {
+    def put(item: AnyRef, index: Int): Unit = {
       if (index >= _items.size) expandItems()
       _items(index) = item
     }
@@ -139,7 +139,7 @@ object SMap {
 
     private def expandItems(): Unit = {
       val size = _items.size
-      val newItems = new Array[AnyVal](size << 1) // count * 2
+      val newItems = new Array[AnyRef](size << 1) // count * 2
       _items.copyToArray(newItems)
       _items = newItems
     }
@@ -147,6 +147,7 @@ object SMap {
 
   implicit class Extensions[K, V](val map: SMap[K, V]) extends AnyVal {
     def get(key: K): Option[V] =
+      // todo: @perf match on Entry to get value directly or better to override get somehow?
       map.getEntryOrNull(key.hashCode) match {
         case e: Entry[K, V] => e.get(key)
         case _              => None
@@ -204,24 +205,141 @@ object SMap {
     ): S = {
       if (!map.isEmpty) {
         var i = 0;
-        if (map.isInstanceOf[Entry[K, V]]) {
-          map match {
-            case kv: KVEntry[K, V] => handler(kv, i, state)
-            case hc: HashConflictingEntry[K, V] =>
-              for (c <- hc.conflicts) {
-                handler(c, i, state)
-                i += 1
-              }
-            case _ => ()
-          }
-        } else {
-          ???
+        // todo: @wip how to handle the VEntry?
+        def forEntry(m: SMap[K, V]): Unit = map match {
+          case kv: KVEntry[K, V] => handler(kv, i, state)
+          case hc: HashConflictingEntry[K, V] =>
+            for (c <- hc.conflicts) {
+              handler(c, i, state)
+              i += 1
+            }
+          case _ => ()
         }
-        // {
-        //     if (e is ImHashMapEntry<K, V> kv) handler(kv, 0, state);
-        //     else foreach (var c in ((HashConflictingEntry<K, V>)e).Conflicts) handler(c, i++, state);
-        //     return state;
-        // }
+
+        if (map.isInstanceOf[Entry[K, V]])
+          forEntry(map)
+        else {
+          var m = map; var p = parents
+          var count = 0
+          var done = false
+          while (!done) {
+            m match {
+              case b2: Branch2[K, V] => {
+                if (p == null)
+                  p = new MapParentStack()
+                p.put(m, count); count += 1
+                m = b2.left
+              }
+              case b3: Branch3[K, V] => {
+                if (p == null)
+                  p = new MapParentStack();
+                p.put(m, count); count += 1
+                m = b3.left
+              }
+              case entryOrLeaf =>
+                entryOrLeaf match {
+                  case l1: Entry[K, V] => forEntry(l1)
+                  case l2: Leaf2[K, V] => forEntry(l2.e0); forEntry(l2.e1)
+                  case l2p: Leaf2Plus[K, V] => {
+                    var p = l2p.p; val ph = p.hash; val l = l2p.l
+                    var le0 = l.e0; var le1 = l.e1; var t: Entry[K, V] = null
+                    if (ph < le1.hash) {
+                      t = le1; le1 = p; p = t
+                      if (ph < le0.hash)
+                        t = le0; le0 = le1; le1 = t
+                    }
+                    forEntry(le0); forEntry(le1); forEntry(p)
+                  }
+                  case l2pp: Leaf2PlusPlus[K, V] => {
+                    var p = l2pp.p; var pp = l2pp.l.p;
+                    val ph = p.hash; val pph = pp.hash; val l = l2pp.l.l;
+                    var le0 = l.e0; var le1 = l.e1; var t: Entry[K, V] = null
+                    if (pph < le1.hash) {
+                      t = le1; le1 = pp; pp = t
+                      if (pph < le0.hash)
+                        t = le0; le0 = le1; le1 = t
+                    }
+
+                    if (ph < pp.hash) {
+                      t = pp; pp = p; p = t
+                      if (ph < le1.hash) {
+                        t = le1; le1 = pp; pp = t
+                        if (ph < le0.hash)
+                          t = le0; le0 = le1; le1 = t
+                      }
+                    }
+                    forEntry(le0); forEntry(le1); forEntry(pp); forEntry(p)
+                  }
+                  case l5: Leaf5[K, V] =>
+                    forEntry(l5.e0); forEntry(l5.e1); forEntry(l5.e2);
+                    forEntry(l5.e3); forEntry(l5.e4)
+                  case l5p: Leaf5Plus[K, V] => {
+                    var p = l5p.p; val ph = p.hash; val l = l5p.l
+                    var le0 = l.e0; var le1 = l.e1; var le2 = l.e2;
+                    var le3 = l.e3; var le4 = l.e4; var t: Entry[K, V] = null
+                    if (ph < le4.hash) {
+                      t = le4; le4 = p; p = t
+                      if (ph < le3.hash) {
+                        t = le3; le3 = le4; le4 = t
+                        if (ph < le2.hash) {
+                          t = le2; le2 = le3; le3 = t
+                          if (ph < le1.hash) {
+                            t = le1; le1 = le2; le2 = t
+                            if (ph < le0.hash)
+                              t = le0; le0 = le1; le1 = t
+                          }
+                        }
+                      }
+                    }
+                    forEntry(le0); forEntry(le1); forEntry(le2)
+                    forEntry(le3); forEntry(le4); forEntry(p)
+                  }
+                  case l5pp: Leaf5PlusPlus[K, V] => {
+                    var p = l5pp.p; var pp = l5pp.l.p;
+                    val ph = p.hash; val pph = pp.hash; val l = l5pp.l.l
+                    var le0 = l.e0; var le1 = l.e1; var le2 = l.e2;
+                    var le3 = l.e3; var le4 = l.e4; var t: Entry[K, V] = null
+                    if (pph < le4.hash) {
+                      t = le4; le4 = pp; pp = t
+                      if (pph < le3.hash) {
+                        t = le3; le3 = le4; le4 = t
+                        if (pph < le2.hash) {
+                          t = le2; le2 = le3; le3 = t
+                          if (pph < le1.hash) {
+                            t = le1; le1 = le2; le2 = t
+                            if (pph < le0.hash)
+                              t = le0; le0 = le1; le1 = t
+                          }
+                        }
+                      }
+                    }
+                    if (ph < pp.hash) {
+                      t = pp; pp = p; p = t
+                      if (ph < le4.hash) {
+                        t = le4; le4 = pp; pp = t
+                        if (ph < le3.hash) {
+                          t = le3; le3 = le4; le4 = t
+                          if (ph < le2.hash) {
+                            t = le2; le2 = le3; le3 = t
+                            if (ph < le1.hash) {
+                              t = le1; le1 = le2; le2 = t
+                              if (ph < le0.hash)
+                                t = le0; le0 = le1; le1 = t
+                            }
+                          }
+                        }
+                      }
+                    }
+                    forEntry(le0); forEntry(le1); forEntry(le2)
+                    forEntry(le3); forEntry(le4)
+                    forEntry(pp); forEntry(p)
+                  }
+                  case _ => ???
+                }
+            }
+            done = true
+          }
+        }
 
         ???
       }
