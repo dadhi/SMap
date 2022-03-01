@@ -148,7 +148,7 @@ object SMap {
   implicit class Extensions[K, V](val map: SMap[K, V]) extends AnyVal {
     def get(key: K): Option[V] =
       map.getEntryOrNull(key.hashCode) match {
-        case e: Entry[K, V] => e.getValue(key)
+        case e: Entry[K, V] => e.get(key)
         case _              => None
       }
 
@@ -527,7 +527,7 @@ object SMap {
 
     /** Get the value if the `key` is matching the one stored in the entry
       */
-    def getValue(key: K): Option[V]
+    def get(key: K): Option[V]
 
     /** Updating the entry with the new one. It cannot return an empty map.
       */
@@ -574,7 +574,7 @@ object SMap {
   final case class VEntry[V](override val hash: Int, value: V)
       extends Entry[Int, V](hash) {
 
-    override def getValue(key: Int): Option[V] =
+    override def get(key: Int): Option[V] =
       if (key == hash) Some(value) else None
 
     override def replaceOrAdd(key: Int, entry: Entry[Int, V]): Entry[Int, V] =
@@ -594,7 +594,7 @@ object SMap {
   final case class KVEntry[K, V](override val hash: Int, key: K, value: V)
       extends Entry[K, V](hash) {
 
-    override def getValue(key: K): Option[V] =
+    override def get(key: K): Option[V] =
       if (this.key == key) Some(value) else None
 
     override def replaceOrAdd(key: K, entry: Entry[K, V]): Entry[K, V] =
@@ -631,7 +631,7 @@ object SMap {
 
     override def size: Int = conflicts.length
 
-    override def getValue(key: K): Option[V] =
+    override def get(key: K): Option[V] =
       conflicts.find(_.key == key).map(_.value)
 
     override def replaceOrAdd(key: K, entry: Entry[K, V]): Entry[K, V] = {

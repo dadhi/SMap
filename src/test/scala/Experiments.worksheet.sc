@@ -14,6 +14,5 @@ object M {
   final case class VE[V](i: Int) extends E[Int, V](i)
 }
 
-
 val s = M.KVE(1, 1)
 s.getClass.getName

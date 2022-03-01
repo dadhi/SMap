@@ -18,7 +18,8 @@ class SMapSpec extends AnyFunSuite {
     assert(SMap("a" -> 2, "b" -> 3) != SMap("a" -> 2))
   }
   test("Lookup for the existing key should succeed in map of one item") {
-    assert(SMap("a" -> 2).getOrElse("a", 0) == 2)
+    assert(SMap("a" -> 1).get("a") == Some(1))
+    assert(SMap("b" -> 2).getOrElse("b", 0) == 2)
   }
   test(
     "Adding two items with the same keys should keep the last item only (the same behavior as map)"
