@@ -299,6 +299,9 @@ object SMap {
     override def getEntryOrNull(hash: Int): Entry[K, V] =
       if (hash == this.hash) this else null
 
+    //todo: @wip
+    // def key: K
+
     /** Get the value if the `key` is matching the one stored in the entry
       */
     def get(key: K): Option[V]
@@ -312,14 +315,6 @@ object SMap {
       * another entry without the key.
       */
     def tryEvict(key: K): Entry[K, V] = this
-
-    // /** Updating the entry with the new one using the `updateOrKeep` method
-    //   */
-    // def updateOrKeep[S](
-    //     state: S,
-    //     newEntry: KVEntry[K, V],
-    //     updateOrKeep: UpdaterOrKeeper[S]
-    // ): Entry[K, V]
 
     /** The method won't add the entry in the case of the conflicting hash here,
       * because this is the responsibility of `replaceEntry`. So you may always
@@ -367,16 +362,6 @@ object SMap {
 
     override def replaceOrAdd(key: Int, entry: Entry[Int, V]): Entry[Int, V] =
       entry
-
-    //   override def updateOrKeep[S](
-    //       state: S,
-    //       newEntry: KVEntry[K, V],
-    //       updateOrKeep: UpdaterOrKeeper[S]
-    //   ): Entry[K, V] =
-    //     if (this.key != newEntry.key)
-    //       HashConflictingEntry(this.hash, Array(newEntry, this))
-    //     else if (updateOrKeep(state, this, newEntry) ne this) newEntry
-    //     else this
   }
 
   final case class KVEntry[K, V](override val hash: Int, key: K, value: V)
@@ -391,16 +376,6 @@ object SMap {
         val newEntry = entry.asInstanceOf[KVEntry[K, V]]
         HashConflictingEntry(hash, Array(newEntry, this))
       }
-
-    //   override def updateOrKeep[S](
-    //       state: S,
-    //       newEntry: KVEntry[K, V],
-    //       updateOrKeep: UpdaterOrKeeper[S]
-    //   ): Entry[K, V] =
-    //     if (this.key != newEntry.key)
-    //       HashConflictingEntry(this.hash, Array(newEntry, this))
-    //     else if (updateOrKeep(state, this, newEntry) ne this) newEntry
-    //     else this
   }
 
   private def appendOrReplace[T](items: Array[T], item: T, i: Int)(implicit
@@ -459,20 +434,6 @@ object SMap {
         handler(state, startIndex, e)
       startIndex + 1
     }
-
-    //   override def updateOrKeep[S](
-    //       state: S,
-    //       newEntry: KVEntry[K, V],
-    //       updateOrKeep: UpdaterOrKeeper[S]
-    //   ): Entry[K, V] = {
-    //     val key = newEntry.key
-    //     val i = conflicts.indexWhere(_.key == key)
-    //     if (i == -1)
-    //       HashConflictingEntry(hash, appendOrReplace(conflicts, newEntry))
-    //     else if (updateOrKeep(state, conflicts(i), newEntry) ne conflicts(i))
-    //       HashConflictingEntry(hash, appendOrReplace(conflicts, newEntry, i))
-    //     else this
-    //   }
   }
 
   protected final case class Leaf2[K, V](e0: Entry[K, V], e1: Entry[K, V])
