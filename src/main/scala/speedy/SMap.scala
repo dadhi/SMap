@@ -291,6 +291,15 @@ object SMap {
       }
   }
 
+  trait KeyValue[K, V] {
+    def key: K
+    def value: V
+  }
+
+  object KeyValue {
+    def unapply[K, V](kv: KeyValue[K, V]): (K, V) = (kv.key, kv.value)
+  }
+
   protected abstract class Entry[K, V](val hash: Int) extends SMap[K, V] {
 
     override def size: Int = 1
@@ -298,9 +307,6 @@ object SMap {
     override def getMaxHashEntryOrNull: Entry[K, V] = this
     override def getEntryOrNull(hash: Int): Entry[K, V] =
       if (hash == this.hash) this else null
-
-    //todo: @wip
-    // def key: K
 
     /** Get the value if the `key` is matching the one stored in the entry
       */
@@ -354,8 +360,11 @@ object SMap {
     }
   }
 
-  final case class VEntry[V](override val hash: Int, value: V)
-      extends Entry[Int, V](hash) {
+  final case class VEntry[V](override val hash: Int, override val value: V)
+      extends Entry[Int, V](hash)
+      with KeyValue[Int, V] {
+
+    override def key: Int = hash
 
     override def get(key: Int): Option[V] =
       if (key == hash) Some(value) else None
@@ -364,8 +373,12 @@ object SMap {
       entry
   }
 
-  final case class KVEntry[K, V](override val hash: Int, key: K, value: V)
-      extends Entry[K, V](hash) {
+  final case class KVEntry[K, V](
+      override val hash: Int,
+      override val key: K,
+      override val value: V
+  ) extends Entry[K, V](hash)
+      with KeyValue[K, V] {
 
     override def get(key: K): Option[V] =
       if (this.key == key) Some(value) else None

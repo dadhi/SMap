@@ -16,5 +16,3 @@ object M {
 
 val s = M.KVE(1, 1)
 s.getClass.getName
-
-List(1, 2).foldLeft
