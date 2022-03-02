@@ -88,173 +88,68 @@ sealed trait SMap[K, V] {
     }
 
   /** Depth-first in-order of hash traversal as described in
-    * http://en.wikipedia.org/wiki/Tree_traversal. The `parents` parameter
+    * http://en.wikipedia.org/wiki/Tree_traversal. The `parentStack` parameter
     * allows to reuse the stack memory used for the traversal between multiple
-    * calls. So you may pass the empty `parents` into the first `Enumerate` and
-    * then keep passing the same `parents` into the subsequent calls
+    * calls. So you may pass the empty `parentStack` into the first `foreach`
+    * and then keep passing the same `parentStack` into the subsequent calls
     */
-  def foreach[S](state: S, parents: MapParentStack = null)(
-      handler: (Entry[K, V], Int, S) => Unit
-  ): S = {
+  def foreach[S](
+      state: S,
+      startIndex: Int = 0,
+      parentStack: ParentStack = null
+  )(
+      handler: (S, Int, Entry[K, V]) => Unit
+  ): Int = {
+    var i = startIndex
     if (!isEmpty) {
-      var i = 0;
-      // todo: @wip implement it in Entry?
       // todo: @wip ensure that VEntry has key?
-      def forEntry(e: Entry[K, V]): Unit = e match {
-        case hc: HashConflictingEntry[K, V] =>
-          for (c <- hc.conflicts) {
-            handler(c, i, state)
-            i += 1
-          }
-        case _ => handler(e, i, state); i += 1
-      }
-
-      var m = this; var p = parents; var parentStackSize = 0; var done = false
+      val h = handler; val s = state
+      var m = this; var p = parentStack; var pSize = 0
+      var done = false
       while (!done) m match {
         case b2: Branch2[K, V] => {
-          if (p == null)
-            p = new MapParentStack()
-          p.put(m, parentStackSize); parentStackSize += 1
+          if (p == null) p = new ParentStack()
+          p.put(m, pSize); pSize += 1
           m = b2.left
         }
         case b3: Branch3[K, V] => {
-          if (p == null)
-            p = new MapParentStack();
-          p.put(m, parentStackSize); parentStackSize += 1
+          if (p == null) p = new ParentStack();
+          p.put(m, pSize); pSize += 1
           m = b3.left
         }
-        case entryOrLeaf =>
-          {
-            entryOrLeaf match {
-              case l1: Entry[K, V] => forEntry(l1)
-              case l2: Leaf2[K, V] => forEntry(l2.e0); forEntry(l2.e1)
-              case l2p: Leaf2Plus[K, V] => {
-                var p = l2p.p; val ph = p.hash; val l = l2p.l
-                var le0 = l.e0; var le1 = l.e1; var t: Entry[K, V] = null
-                if (ph < le1.hash) {
-                  t = le1; le1 = p; p = t
-                  if (ph < le0.hash)
-                    t = le0; le0 = le1; le1 = t
-                }
-                forEntry(le0); forEntry(le1); forEntry(p)
-              }
-              case l2pp: Leaf2PlusPlus[K, V] => {
-                var p = l2pp.p; var pp = l2pp.l.p;
-                val ph = p.hash; val pph = pp.hash; val l = l2pp.l.l;
-                var le0 = l.e0; var le1 = l.e1; var t: Entry[K, V] = null
-                if (pph < le1.hash) {
-                  t = le1; le1 = pp; pp = t
-                  if (pph < le0.hash)
-                    t = le0; le0 = le1; le1 = t
-                }
-
-                if (ph < pp.hash) {
-                  t = pp; pp = p; p = t
-                  if (ph < le1.hash) {
-                    t = le1; le1 = pp; pp = t
-                    if (ph < le0.hash)
-                      t = le0; le0 = le1; le1 = t
-                  }
-                }
-                forEntry(le0); forEntry(le1); forEntry(pp); forEntry(p)
-              }
-              case l5: Leaf5[K, V] =>
-                forEntry(l5.e0); forEntry(l5.e1); forEntry(l5.e2);
-                forEntry(l5.e3); forEntry(l5.e4)
-              case l5p: Leaf5Plus[K, V] => {
-                var p = l5p.p; val ph = p.hash; val l = l5p.l
-                var le0 = l.e0; var le1 = l.e1; var le2 = l.e2;
-                var le3 = l.e3; var le4 = l.e4; var t: Entry[K, V] = null
-                if (ph < le4.hash) {
-                  t = le4; le4 = p; p = t
-                  if (ph < le3.hash) {
-                    t = le3; le3 = le4; le4 = t
-                    if (ph < le2.hash) {
-                      t = le2; le2 = le3; le3 = t
-                      if (ph < le1.hash) {
-                        t = le1; le1 = le2; le2 = t
-                        if (ph < le0.hash)
-                          t = le0; le0 = le1; le1 = t
-                      }
-                    }
-                  }
-                }
-                forEntry(le0); forEntry(le1); forEntry(le2)
-                forEntry(le3); forEntry(le4); forEntry(p)
-              }
-              case l5pp: Leaf5PlusPlus[K, V] => {
-                var p = l5pp.p; var pp = l5pp.l.p;
-                val ph = p.hash; val pph = pp.hash; val l = l5pp.l.l
-                var le0 = l.e0; var le1 = l.e1; var le2 = l.e2;
-                var le3 = l.e3; var le4 = l.e4; var t: Entry[K, V] = null
-                if (pph < le4.hash) {
-                  t = le4; le4 = pp; pp = t
-                  if (pph < le3.hash) {
-                    t = le3; le3 = le4; le4 = t
-                    if (pph < le2.hash) {
-                      t = le2; le2 = le3; le3 = t
-                      if (pph < le1.hash) {
-                        t = le1; le1 = le2; le2 = t
-                        if (pph < le0.hash)
-                          t = le0; le0 = le1; le1 = t
-                      }
-                    }
-                  }
-                }
-                if (ph < pp.hash) {
-                  t = pp; pp = p; p = t
-                  if (ph < le4.hash) {
-                    t = le4; le4 = pp; pp = t
-                    if (ph < le3.hash) {
-                      t = le3; le3 = le4; le4 = t
-                      if (ph < le2.hash) {
-                        t = le2; le2 = le3; le3 = t
-                        if (ph < le1.hash) {
-                          t = le1; le1 = le2; le2 = t
-                          if (ph < le0.hash)
-                            t = le0; le0 = le1; le1 = t
-                        }
-                      }
-                    }
-                  }
-                }
-                forEntry(le0); forEntry(le1); forEntry(le2)
-                forEntry(le3); forEntry(le4)
-                forEntry(pp); forEntry(p)
-              }
-              case _ => ???
-            }
-          }
-          if (parentStackSize == 0)
+        case entryOrLeaf => {
+          i = entryOrLeaf.foreach(s, i, p)(h)
+          if (pSize <= 0)
             // we yield the leaf and there is nothing in stack - we are DONE!
             done = true
           else {
             // otherwise get the parent
-            parentStackSize -= 1
-            var b =
-              parents(parentStackSize) match {
-                case b2: Branch2[K, V] => {
-                  forEntry(b2.e)
-                  m = b2.right;
-                }
-                case b3: Branch3[K, V] => {
-                  forEntry(b3.e0)
-                  m = b3.mid;
-                  parentStackSize += 1
-                  parents.put(ForeachBranch3Tombstone, parentStackSize)
-                  parentStackSize += 1
-                }
-                case _ => {
-                  parentStackSize -= 1
-                  val b3 = parents(parentStackSize).asInstanceOf[Branch3[K, V]]
-                  forEntry(b3.e1)
-                  m = b3.right;
-                }
+            pSize -= 1
+            parentStack(pSize) match {
+              case b2: Branch2[K, V] => {
+                i = b2.e.foreach(s, i, p)(h)
+                m = b2.right;
               }
+              case b3: Branch3[K, V] => {
+                i = b3.e0.foreach(s, i, p)(h)
+                m = b3.mid;
+                pSize += 1
+                p.put(ForeachBranch3Marker, pSize)
+                pSize += 1
+              }
+              // ForeachBranch3Marker
+              case _ => {
+                pSize -= 1
+                val b3 = p(pSize).asInstanceOf[Branch3[K, V]]
+                i = b3.e1.foreach(s, i, p)(h)
+                m = b3.right;
+              }
+            }
           }
+        }
       }
     }
-    state
+    i
   }
 }
 
@@ -296,8 +191,10 @@ object SMap {
   def default[K](key: K): Nothing =
     throw new NoSuchElementException("key not found: " + key)
 
-  final class MapParentStack(capacity: Int = 4) {
+  final class ParentStack(capacity: Int = 4) {
 
+    // it is accepting any object because we will be storing the branches and the
+    // special marker(s) like ForeachBranch3Marker
     var _items: Array[AnyRef] = new Array[AnyRef](capacity)
 
     def put(item: AnyRef, index: Int): Unit = {
@@ -314,6 +211,9 @@ object SMap {
       _items = newItems
     }
   }
+
+  // Used to iterate over mid-e-right side of Branch3
+  private object ForeachBranch3Marker
 
   implicit class Extensions[K, V](val map: SMap[K, V]) extends AnyVal {
     def get(key: K): Option[V] =
@@ -426,22 +326,36 @@ object SMap {
       * expect the same entry to be returned for the conflicting hash.
       */
     override def addOrGetEntry(entry: Entry[K, V]): SMap[K, V] =
-      if (entry.hash > hash) new Leaf2(this, entry)
-      else if (entry.hash < hash) new Leaf2(entry, this)
+      if (entry.hash > hash) Leaf2(this, entry)
+      else if (entry.hash < hash) Leaf2(entry, this)
       else this
 
     /** When down to the entry, the oldEntry should be present in the entry
       */
-    override def replaceEntry(oldEntry: Entry[K, V], newEntry: Entry[K, V]) = {
+    override protected def replaceEntry(
+        oldEntry: Entry[K, V],
+        newEntry: Entry[K, V]
+    ) = {
       assert(this eq oldEntry)
       newEntry
     }
 
     /** When down to the entry, the entry should be present in the entry
       */
-    override def removeEntry(entry: Entry[K, V]): SMap[K, V] = {
+    override protected def removeEntry(entry: Entry[K, V]): SMap[K, V] = {
       assert(this eq entry)
       SMap.empty
+    }
+
+    override def foreach[S](
+        state: S,
+        startIndex: Int = 0,
+        parentStack: ParentStack = null
+    )(
+        handler: (S, Int, Entry[K, V]) => Unit
+    ): Int = {
+      handler(state, startIndex, this)
+      startIndex + 1
     }
   }
 
@@ -453,14 +367,6 @@ object SMap {
 
     override def replaceOrAdd(key: Int, entry: Entry[Int, V]): Entry[Int, V] =
       entry
-
-    // override def foreach(i: Int = 0, parents: MapParentStack = null)(
-    //     handler: (Entry[K, V], Int) => Unit
-    // ): Int = {
-    //   handler(e, i)
-    //   i + 1
-    // }
-
 
     //   override def updateOrKeep[S](
     //       state: S,
@@ -506,7 +412,7 @@ object SMap {
     newItems
   }
 
-  final case class HashConflictingEntry[K, V](
+  final protected case class HashConflictingEntry[K, V](
       override val hash: Int,
       conflicts: Array[KVEntry[K, V]]
   ) extends Entry[K, V](hash) {
@@ -540,6 +446,18 @@ object SMap {
           HashConflictingEntry(hash, newConflicts)
         }
       }
+    }
+
+    override def foreach[S](
+        state: S,
+        startIndex: Int = 0,
+        parentStack: ParentStack = null
+    )(
+        handler: (S, Int, Entry[K, V]) => Unit
+    ): Int = {
+      for (e <- conflicts)
+        handler(state, startIndex, e)
+      startIndex + 1
     }
 
     //   override def updateOrKeep[S](
@@ -585,8 +503,21 @@ object SMap {
     ): SMap[K, V] =
       if (oldEntry eq e0) Leaf2(newEntry, e1) else Leaf2(e0, newEntry)
 
-    override protected def removeEntry(entry: Entry[K, V]): SMap[K, V] =
+    override def removeEntry(entry: Entry[K, V]): SMap[K, V] =
       if (e0 eq entry) e1 else e0
+
+    override def foreach[S](
+        state: S,
+        startIndex: Int = 0,
+        parentStack: ParentStack = null
+    )(
+        handler: (S, Int, Entry[K, V]) => Unit
+    ): Int = {
+      var i = startIndex
+      i = e0.foreach(state, i, parentStack)(handler)
+      i = e1.foreach(state, i, parentStack)(handler)
+      i + 1
+    }
   }
 
   protected final case class Leaf2Plus[K, V](p: Entry[K, V], l: Leaf2[K, V])
@@ -615,16 +546,38 @@ object SMap {
         newEntry: Entry[K, V]
     ): SMap[K, V] =
       if (oldEntry eq p) Leaf2Plus(newEntry, l)
-      else if (oldEntry eq l.e0) Leaf2Plus(p, new Leaf2(newEntry, l.e1))
-      else Leaf2Plus(p, new Leaf2(l.e0, newEntry))
+      else if (oldEntry eq l.e0)
+        Leaf2Plus(p, Leaf2(newEntry, l.e1))
+      else
+        Leaf2Plus(p, Leaf2(l.e0, newEntry))
 
     override def removeEntry(entry: Entry[K, V]): SMap[K, V] =
       if (entry eq p) l
       else if (entry eq l.e0)
-        (if (p.hash < l.e1.hash) Leaf2(p, l.e1)
-         else new Leaf2(l.e1, p))
+        (if (p.hash < l.e1.hash) Leaf2(p, l.e1) else Leaf2(l.e1, p))
       else (if (p.hash < l.e0.hash) Leaf2(p, l.e0)
-            else new Leaf2(l.e0, p))
+            else Leaf2(l.e0, p))
+
+    override def foreach[S](
+        state: S,
+        startIndex: Int = 0,
+        parentStack: ParentStack = null
+    )(
+        handler: (S, Int, Entry[K, V]) => Unit
+    ): Int = {
+      var lp = p; val ph = lp.hash
+      var le0 = l.e0; var le1 = l.e1; var t: Entry[K, V] = null
+      if (ph < le1.hash) {
+        t = le1; le1 = lp; lp = t
+        if (ph < le0.hash)
+          t = le0; le0 = le1; le1 = t
+      }
+      var i = startIndex
+      i = le0.foreach(state, i, parentStack)(handler)
+      i = le1.foreach(state, i, parentStack)(handler)
+      i = lp.foreach(state, i, parentStack)(handler)
+      i
+    }
   }
 
   protected final case class Leaf2PlusPlus[K, V](
@@ -708,6 +661,38 @@ object SMap {
          else Leaf2Plus(p, Leaf2(l.l.e1, l.p)))
       else (if (l.p.hash < l.l.e0.hash) Leaf2Plus(p, Leaf2(l.p, l.l.e0))
             else Leaf2Plus(p, Leaf2(l.l.e0, l.p)))
+
+    override def foreach[S](
+        state: S,
+        startIndex: Int = 0,
+        parentStack: ParentStack = null
+    )(
+        handler: (S, Int, Entry[K, V]) => Unit
+    ): Int = {
+      var lp = p; var lpp = l.p
+      val ph = lp.hash; val pph = lpp.hash; val ll = l.l
+      var le0 = ll.e0; var le1 = ll.e1; var t: Entry[K, V] = null
+      if (pph < le1.hash) {
+        t = le1; le1 = lpp; lpp = t
+        if (pph < le0.hash)
+          t = le0; le0 = le1; le1 = t
+      }
+
+      if (ph < lpp.hash) {
+        t = lpp; lpp = lp; lp = t
+        if (ph < le1.hash) {
+          t = le1; le1 = lpp; lpp = t
+          if (ph < le0.hash)
+            t = le0; le0 = le1; le1 = t
+        }
+      }
+      var i = startIndex
+      i = le0.foreach(state, i, parentStack)(handler)
+      i = le1.foreach(state, i, parentStack)(handler)
+      i = lpp.foreach(state, i, parentStack)(handler)
+      i = lp.foreach(state, i, parentStack)(handler)
+      i
+    }
   }
 
   protected final case class Leaf5[K, V](
@@ -759,6 +744,22 @@ object SMap {
       else if (entry eq e3) Leaf2PlusPlus(e4, Leaf2Plus(e2, Leaf2(e0, e1)))
       else
         Leaf2PlusPlus(e3, Leaf2Plus(e2, Leaf2(e0, e1)))
+
+    override def foreach[S](
+        state: S,
+        startIndex: Int = 0,
+        parentStack: ParentStack = null
+    )(
+        handler: (S, Int, Entry[K, V]) => Unit
+    ): Int = {
+      var i = startIndex
+      i = e0.foreach(state, i, parentStack)(handler)
+      i = e1.foreach(state, i, parentStack)(handler)
+      i = e2.foreach(state, i, parentStack)(handler)
+      i = e3.foreach(state, i, parentStack)(handler)
+      i = e4.foreach(state, i, parentStack)(handler)
+      i
+    }
   }
 
   protected final case class Leaf5Plus[K, V](p: Entry[K, V], l: Leaf5[K, V])
@@ -828,6 +829,41 @@ object SMap {
         else if (entry eq e4) Leaf5(e0, e1, e2, e3, p_)
         else Leaf5(e0, e1, e2, e3, e4)
       }
+
+    override def foreach[S](
+        state: S,
+        startIndex: Int = 0,
+        parentStack: ParentStack = null
+    )(
+        handler: (S, Int, Entry[K, V]) => Unit
+    ): Int = {
+      var lp = p; val ph = p.hash; val ll = l
+      var le0 = ll.e0; var le1 = ll.e1; var le2 = ll.e2
+      var le3 = ll.e3; var le4 = ll.e4; var t: Entry[K, V] = null
+      if (ph < le4.hash) {
+        t = le4; le4 = lp; lp = t
+        if (ph < le3.hash) {
+          t = le3; le3 = le4; le4 = t
+          if (ph < le2.hash) {
+            t = le2; le2 = le3; le3 = t
+            if (ph < le1.hash) {
+              t = le1; le1 = le2; le2 = t
+              if (ph < le0.hash)
+                t = le0; le0 = le1; le1 = t
+            }
+          }
+        }
+      }
+
+      var i = startIndex
+      i = le0.foreach(state, i, parentStack)(handler)
+      i = le1.foreach(state, i, parentStack)(handler)
+      i = le2.foreach(state, i, parentStack)(handler)
+      i = le3.foreach(state, i, parentStack)(handler)
+      i = le4.foreach(state, i, parentStack)(handler)
+      i = lp.foreach(state, i, parentStack)(handler)
+      i
+    }
   }
 
   protected final case class Leaf5PlusPlus[K, V](
@@ -932,7 +968,7 @@ object SMap {
       if (p eq oldEntry)
         Leaf5PlusPlus(newEntry, l)
       else if (l.p eq oldEntry)
-        Leaf5PlusPlus(p, new Leaf5Plus(newEntry, l.l))
+        Leaf5PlusPlus(p, Leaf5Plus(newEntry, l.l))
       else {
         val lp = l.p; val ll = l.l
         val e0 = ll.e0; val e1 = ll.e1; val e2 = ll.e2; val e3 = ll.e3
@@ -940,27 +976,27 @@ object SMap {
         if (oldEntry eq e0)
           Leaf5PlusPlus(
             p,
-            new Leaf5Plus(lp, new Leaf5(newEntry, e1, e2, e3, e4))
+            Leaf5Plus(lp, Leaf5(newEntry, e1, e2, e3, e4))
           )
         else if (oldEntry eq e1)
           Leaf5PlusPlus(
             p,
-            new Leaf5Plus(lp, new Leaf5(e0, newEntry, e2, e3, e4))
+            Leaf5Plus(lp, Leaf5(e0, newEntry, e2, e3, e4))
           )
         else if (oldEntry eq e2)
           Leaf5PlusPlus(
             p,
-            new Leaf5Plus(lp, new Leaf5(e0, e1, newEntry, e3, e4))
+            Leaf5Plus(lp, Leaf5(e0, e1, newEntry, e3, e4))
           )
         else if (oldEntry eq e3)
           Leaf5PlusPlus(
             p,
-            new Leaf5Plus(lp, new Leaf5(e0, e1, e2, newEntry, e4))
+            Leaf5Plus(lp, Leaf5(e0, e1, e2, newEntry, e4))
           )
         else
           Leaf5PlusPlus(
             p,
-            new Leaf5Plus(lp, new Leaf5(e0, e1, e2, e3, newEntry))
+            Leaf5Plus(lp, Leaf5(e0, e1, e2, e3, newEntry))
           )
       }
     }
@@ -1007,14 +1043,68 @@ object SMap {
             }
           }
         }
-        if (entry eq e0) Leaf5Plus(p_, new Leaf5(e1, e2, e3, e4, lp))
-        else if (entry eq e1) Leaf5Plus(p_, new Leaf5(e0, e2, e3, e4, lp))
-        else if (entry eq e2) Leaf5Plus(p_, new Leaf5(e0, e1, e3, e4, lp))
-        else if (entry eq e3) Leaf5Plus(p_, new Leaf5(e0, e1, e2, e4, lp))
-        else if (entry eq e4) Leaf5Plus(p_, new Leaf5(e0, e1, e2, e3, lp))
-        else if (entry eq lp) Leaf5Plus(p_, new Leaf5(e0, e1, e2, e3, e4))
-        else Leaf5Plus(lp, new Leaf5(e0, e1, e2, e3, e4))
+        if (entry eq e0) Leaf5Plus(p_, Leaf5(e1, e2, e3, e4, lp))
+        else if (entry eq e1) Leaf5Plus(p_, Leaf5(e0, e2, e3, e4, lp))
+        else if (entry eq e2) Leaf5Plus(p_, Leaf5(e0, e1, e3, e4, lp))
+        else if (entry eq e3) Leaf5Plus(p_, Leaf5(e0, e1, e2, e4, lp))
+        else if (entry eq e4) Leaf5Plus(p_, Leaf5(e0, e1, e2, e3, lp))
+        else if (entry eq lp) Leaf5Plus(p_, Leaf5(e0, e1, e2, e3, e4))
+        else Leaf5Plus(lp, Leaf5(e0, e1, e2, e3, e4))
       }
+    }
+
+    override def foreach[S](
+        state: S,
+        startIndex: Int = 0,
+        parentStack: ParentStack = null
+    )(
+        handler: (S, Int, Entry[K, V]) => Unit
+    ): Int = {
+      var lp = p; val ph = p.hash
+      var lpp = l.p; val pph = lpp.hash; val ll = l.l
+      var le0 = ll.e0; var le1 = ll.e1; var le2 = ll.e2
+      var le3 = ll.e3; var le4 = ll.e4; var t: Entry[K, V] = null
+      if (pph < le4.hash) {
+        t = le4; le4 = lpp; lpp = t
+        if (pph < le3.hash) {
+          t = le3; le3 = le4; le4 = t
+          if (pph < le2.hash) {
+            t = le2; le2 = le3; le3 = t
+            if (pph < le1.hash) {
+              t = le1; le1 = le2; le2 = t
+              if (pph < le0.hash)
+                t = le0; le0 = le1; le1 = t
+            }
+          }
+        }
+      }
+      if (ph < lpp.hash) {
+        t = lpp; lpp = lp; lp = t
+        if (ph < le4.hash) {
+          t = le4; le4 = lpp; lpp = t
+          if (ph < le3.hash) {
+            t = le3; le3 = le4; le4 = t
+            if (ph < le2.hash) {
+              t = le2; le2 = le3; le3 = t
+              if (ph < le1.hash) {
+                t = le1; le1 = le2; le2 = t
+                if (ph < le0.hash)
+                  t = le0; le0 = le1; le1 = t
+              }
+            }
+          }
+        }
+      }
+
+      var i = startIndex
+      i = le0.foreach(state, i, parentStack)(handler)
+      i = le1.foreach(state, i, parentStack)(handler)
+      i = le2.foreach(state, i, parentStack)(handler)
+      i = le3.foreach(state, i, parentStack)(handler)
+      i = le4.foreach(state, i, parentStack)(handler)
+      i = lpp.foreach(state, i, parentStack)(handler)
+      i = lp.foreach(state, i, parentStack)(handler)
+      i
     }
   }
 
@@ -1094,7 +1184,7 @@ object SMap {
             left match {
               // the hole has a 2-node as a parent and a 3-node as a sibling:
               case b3: Branch3[K, V] =>
-                new Branch2(
+                Branch2(
                   Branch2(b3.left, b3.e0, b3.mid),
                   b3.e1,
                   Branch2(b3.right, e, newRight)
@@ -1146,9 +1236,6 @@ object SMap {
     }
   }
 
-  // Used to iterate over mid-e-right side of Branch3
-  private object ForeachBranch3Tombstone
-
   protected final case class Branch3[K, V](
       left: SMap[K, V],
       e0: Entry[K, V],
@@ -1197,7 +1284,7 @@ object SMap {
             Branch2(
               Branch2(left, e0, b2.left),
               b2.e,
-              new Branch2(b2.right, e1, right)
+              Branch2(b2.right, e1, right)
             )
           case m =>
             Branch3(left, e0, m, e1, right)
