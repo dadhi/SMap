@@ -4,6 +4,7 @@ ThisBuild / organization := "dadhi"
 Test / parallelExecution := false
 
 val scalaTest = "org.scalatest" %% "scalatest" % "3.2.7"
+val scalaCheck = "org.scalacheck" %% "scalacheck" % "1.15.4"
 val scalaMeter = "com.storm-enroute" %% "scalameter" % "0.21"
 val scalaMeterCore = "com.storm-enroute" %% "scalameter-core" % "0.21"
 
@@ -23,6 +24,7 @@ lazy val speedy = (project in file("."))
     version := "1.0.0-preview-01",
     scalacOptions := projScalacOptions,
     libraryDependencies += scalaTest % Test,
+    libraryDependencies += scalaCheck % Test,
     resolvers += "Sonatype OSS Snapshots" at
       "https://oss.sonatype.org/content/repositories/releases",
     libraryDependencies ++= Seq(scalaMeter, scalaMeterCore),
