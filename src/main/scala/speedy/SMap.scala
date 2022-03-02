@@ -98,7 +98,7 @@ sealed trait SMap[K, V] {
       startIndex: Int = 0,
       parentStack: ParentStack = null
   )(
-      handler: (S, Int, Entry[K, V]) => Unit
+      handler: (S, Int, KeyValue[K, V]) => Unit
   ): Int = {
     var i = startIndex
     if (!isEmpty) {
@@ -294,6 +294,7 @@ object SMap {
   trait KeyValue[K, V] {
     def key: K
     def value: V
+    def hash: Int
   }
 
   object KeyValue {
@@ -347,17 +348,6 @@ object SMap {
       assert(this eq entry)
       SMap.empty
     }
-
-    override def foreach[S](
-        state: S,
-        startIndex: Int = 0,
-        parentStack: ParentStack = null
-    )(
-        handler: (S, Int, Entry[K, V]) => Unit
-    ): Int = {
-      handler(state, startIndex, this)
-      startIndex + 1
-    }
   }
 
   final case class VEntry[V](override val hash: Int, override val value: V)
@@ -371,6 +361,17 @@ object SMap {
 
     override def replaceOrAdd(key: Int, entry: Entry[Int, V]): Entry[Int, V] =
       entry
+
+    override def foreach[S](
+        state: S,
+        startIndex: Int = 0,
+        parentStack: ParentStack = null
+    )(
+        handler: (S, Int, KeyValue[Int, V]) => Unit
+    ): Int = {
+      handler(state, startIndex, this)
+      startIndex + 1
+    }
   }
 
   final case class KVEntry[K, V](
@@ -389,15 +390,17 @@ object SMap {
         val newEntry = entry.asInstanceOf[KVEntry[K, V]]
         HashConflictingEntry(hash, Array(newEntry, this))
       }
-  }
 
-  private def appendOrReplace[T](items: Array[T], item: T, i: Int)(implicit
-      ev: ClassTag[T]
-  ): Array[T] = {
-    val newItems = new Array[T](if (i != -1) items.length else items.length + 1)
-    items.copyToArray(newItems)
-    newItems(if (i != -1) i else items.length) = item
-    newItems
+    override def foreach[S](
+        state: S,
+        startIndex: Int = 0,
+        parentStack: ParentStack = null
+    )(
+        handler: (S, Int, KeyValue[K, V]) => Unit
+    ): Int = {
+      handler(state, startIndex, this)
+      startIndex + 1
+    }
   }
 
   final protected case class HashConflictingEntry[K, V](
@@ -441,12 +444,21 @@ object SMap {
         startIndex: Int = 0,
         parentStack: ParentStack = null
     )(
-        handler: (S, Int, Entry[K, V]) => Unit
+        handler: (S, Int, KeyValue[K, V]) => Unit
     ): Int = {
       for (e <- conflicts)
         handler(state, startIndex, e)
       startIndex + 1
     }
+  }
+
+  private def appendOrReplace[T](items: Array[T], item: T, i: Int)(implicit
+      ev: ClassTag[T]
+  ): Array[T] = {
+    val newItems = new Array[T](if (i != -1) items.length else items.length + 1)
+    items.copyToArray(newItems)
+    newItems(if (i != -1) i else items.length) = item
+    newItems
   }
 
   protected final case class Leaf2[K, V](e0: Entry[K, V], e1: Entry[K, V])
@@ -485,7 +497,7 @@ object SMap {
         startIndex: Int = 0,
         parentStack: ParentStack = null
     )(
-        handler: (S, Int, Entry[K, V]) => Unit
+        handler: (S, Int, KeyValue[K, V]) => Unit
     ): Int = {
       var i = startIndex
       i = e0.foreach(state, i, parentStack)(handler)
@@ -537,7 +549,7 @@ object SMap {
         startIndex: Int = 0,
         parentStack: ParentStack = null
     )(
-        handler: (S, Int, Entry[K, V]) => Unit
+        handler: (S, Int, KeyValue[K, V]) => Unit
     ): Int = {
       var lp = p; val ph = lp.hash
       var le0 = l.e0; var le1 = l.e1; var t: Entry[K, V] = null
@@ -641,7 +653,7 @@ object SMap {
         startIndex: Int = 0,
         parentStack: ParentStack = null
     )(
-        handler: (S, Int, Entry[K, V]) => Unit
+        handler: (S, Int, KeyValue[K, V]) => Unit
     ): Int = {
       var lp = p; var lpp = l.p
       val ph = lp.hash; val pph = lpp.hash; val ll = l.l
@@ -724,7 +736,7 @@ object SMap {
         startIndex: Int = 0,
         parentStack: ParentStack = null
     )(
-        handler: (S, Int, Entry[K, V]) => Unit
+        handler: (S, Int, KeyValue[K, V]) => Unit
     ): Int = {
       var i = startIndex
       i = e0.foreach(state, i, parentStack)(handler)
@@ -809,7 +821,7 @@ object SMap {
         startIndex: Int = 0,
         parentStack: ParentStack = null
     )(
-        handler: (S, Int, Entry[K, V]) => Unit
+        handler: (S, Int, KeyValue[K, V]) => Unit
     ): Int = {
       var lp = p; val ph = p.hash; val ll = l
       var le0 = ll.e0; var le1 = ll.e1; var le2 = ll.e2
@@ -1032,7 +1044,7 @@ object SMap {
         startIndex: Int = 0,
         parentStack: ParentStack = null
     )(
-        handler: (S, Int, Entry[K, V]) => Unit
+        handler: (S, Int, KeyValue[K, V]) => Unit
     ): Int = {
       var lp = p; val ph = p.hash
       var lpp = l.p; val pph = lpp.hash; val ll = l.l
