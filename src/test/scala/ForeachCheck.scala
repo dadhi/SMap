@@ -8,7 +8,7 @@ import speedy.SMap
 object ForeachCheck extends Properties("SMap") {
 
   property("Input and foreach output list of Leaf-based map should be the same") = {
-    val sizes = Gen.choose(3, 5)
+    val sizes = Gen.choose(1, 30)
     forAll (sizes) { (size: Int) =>
       val keys = (1 to size).toVector
       val map = SMap(keys.map((_, '!')): _*)

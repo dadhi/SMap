@@ -125,7 +125,7 @@ sealed trait SMap[K, V] {
           else {
             // otherwise get the parent
             pSize -= 1
-            parentStack(pSize) match {
+            p(pSize) match {
               case b2: Branch2[K, V] => {
                 i = b2.e.foreach(s, i, p)(h)
                 m = b2.right;
