@@ -8,8 +8,7 @@ import speedy.SMap
 object GetUpdatedCheck extends Properties("SMap") {
 
   property("updated") = {
-    val lists = Gen.containerOfN[List, Int](5, Gen.choose(1, 100000))
-    forAll (lists) { list =>
+    forAll { list: List[Int] =>
       var map = SMap.empty[Int, Int]
       for (n <- list)
         map = map.updated(n, n)
