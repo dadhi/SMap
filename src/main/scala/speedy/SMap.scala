@@ -589,19 +589,19 @@ object SMap {
       val found = getEntryOrNull(entry.hash)
       if (found ne null) found
       else {
-        var lp = l.p; var e0 = l.l.e0; var e1 = l.l.e1
-        var p_ = p; val ph = p_.hash; val lph = lp.hash
-        var t: Entry[K, V] = null
+        var lp = l.p; val lph = lp.hash
+        var e0 = l.l.e0; var e1 = l.l.e1; var t: Entry[K, V] = null
 
         // e0 and e1 are already sorted e0 < e1, we need to insert the lp, p_, e in the right order,
         // so the result should be e0 < e1 < lp < p < e
         if (lph < e1.hash) {
           t = lp; lp = e1; e1 = t
           if (lph < e0.hash) {
-            t = e0; e0 = e1; e1 = t
+            t = e1; e1 = e0; e0 = t
           }
         }
 
+        var p_ = p; val ph = p_.hash;
         if (ph < lp.hash) {
           t = p_; p_ = lp; lp = t
           if (ph < e1.hash) {
@@ -615,7 +615,7 @@ object SMap {
         if (hash < p_.hash) {
           t = e; e = p_; p_ = t
           if (hash < lp.hash) {
-            e = p_; p_ = lp; lp = t
+            t = p_; p_ = lp; lp = t
             if (hash < e1.hash) {
               t = lp; lp = e1; e1 = t
               if (hash < e0.hash)
@@ -689,10 +689,10 @@ object SMap {
       e4: Entry[K, V]
   ) extends SMap[K, V] {
 
-    assert(e0.hash < e1.hash)
-    assert(e1.hash < e2.hash)
-    assert(e2.hash < e3.hash)
-    assert(e3.hash < e4.hash)
+    assert(e0.hash < e1.hash)//, s"expected: $e0 < $e1 < $e2 < $e3 < $e4")
+    assert(e1.hash < e2.hash)//, s"expected: $e0 < $e1 < $e2 < $e3 < $e4")
+    assert(e2.hash < e3.hash)//, s"expected: $e0 < $e1 < $e2 < $e3 < $e4")
+    assert(e3.hash < e4.hash)//, s"expected: $e0 < $e1 < $e2 < $e3 < $e4")
 
     override def size = e0.size + e1.size + e2.size + e3.size + e4.size
     override def getMinHashEntryOrNull = e0
