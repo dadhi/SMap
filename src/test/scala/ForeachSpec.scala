@@ -22,4 +22,5 @@ class ForeachSpec extends AnyFunSuite with Matchers {
     m.foreach(l) { (l, _, e) => l += e.key }
     l shouldBe ListBuffer("a", "b")
   }
+  
 }

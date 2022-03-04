@@ -5,9 +5,9 @@ import collection.mutable._
 
 import speedy.SMap
 
-object ForeachCheck extends Properties("SMap") {
+object ForeachCheck extends Properties("SMap.Iterable") {
 
-  property("Input and output list of tiny Leaf-based map should be the same") = {
+  property("foreach") = {
     val sizes = Gen.choose(1, 7)
     forAll (sizes) { (size: Int) =>
       val keys = (1 to size).toVector
@@ -18,7 +18,7 @@ object ForeachCheck extends Properties("SMap") {
     }
   }
 
-  property("Input and output list of big Branch-based map should be the same") = {
+  property("foreach") = {
     val sizes = Gen.choose(8, 100)
     forAll (sizes) { (size: Int) =>
       val keys = (1 to size).toVector

@@ -113,7 +113,7 @@ sealed trait SMap[K, V] {
           m = b2.left
         }
         case b3: Branch3[K, V] => {
-          if (p == null) p = new ParentStack();
+          if (p == null) p = new ParentStack()
           p.put(m, pSize); pSize += 1
           m = b3.left
         }
@@ -425,8 +425,9 @@ object SMap {
       val i = cs.indexWhere(_.key == key)
       if (i == -1) this
       else {
-        if (cs.length == 2)
+        if (cs.length == 2) {
           if (i == 0) cs(1) else cs(0)
+        }
         else {
           val newConflicts = new Array[KVEntry[K, V]](cs.length - 1)
           var j = 0
@@ -555,8 +556,9 @@ object SMap {
       var le0 = l.e0; var le1 = l.e1; var t: Entry[K, V] = null
       if (ph < le1.hash) {
         t = le1; le1 = lp; lp = t
-        if (ph < le0.hash)
+        if (ph < le0.hash) {
           t = le0; le0 = le1; le1 = t
+        }
       }
       var i = startIndex
       i = le0.foreach(state, i, parentStack)(handler)
@@ -606,20 +608,22 @@ object SMap {
           t = p_; p_ = lp; lp = t
           if (ph < e1.hash) {
             t = lp; lp = e1; e1 = t
-            if (ph < e0.hash)
+            if (ph < e0.hash) {
               t = e1; e1 = e0; e0 = t
+            }
           }
         }
 
-        var e = entry; val hash = e.hash
-        if (hash < p_.hash) {
+        var e = entry; val h = e.hash
+        if (h < p_.hash) {
           t = e; e = p_; p_ = t
-          if (hash < lp.hash) {
+          if (h < lp.hash) {
             t = p_; p_ = lp; lp = t
-            if (hash < e1.hash) {
+            if (h < e1.hash) {
               t = lp; lp = e1; e1 = t
-              if (hash < e0.hash)
+              if (h < e0.hash) {
                 t = e1; e1 = e0; e0 = t
+              }
             }
           }
         }
@@ -660,16 +664,18 @@ object SMap {
       var le0 = ll.e0; var le1 = ll.e1; var t: Entry[K, V] = null
       if (pph < le1.hash) {
         t = le1; le1 = lpp; lpp = t
-        if (pph < le0.hash)
+        if (pph < le0.hash) {
           t = le0; le0 = le1; le1 = t
+        }
       }
 
       if (ph < lpp.hash) {
         t = lpp; lpp = lp; lp = t
         if (ph < le1.hash) {
           t = le1; le1 = lpp; lpp = t
-          if (ph < le0.hash)
+          if (ph < le0.hash) {
             t = le0; le0 = le1; le1 = t
+          }
         }
       }
       var i = startIndex
@@ -801,8 +807,9 @@ object SMap {
               t = e2; e2 = e3; e3 = t
               if (ph < e1.hash) {
                 t = e1; e1 = e2; e2 = t
-                if (ph < e0.hash)
+                if (ph < e0.hash) {
                   t = e0; e0 = e1; e1 = t
+                }
               }
             }
           }
@@ -834,8 +841,9 @@ object SMap {
             t = le2; le2 = le3; le3 = t
             if (ph < le1.hash) {
               t = le1; le1 = le2; le2 = t
-              if (ph < le0.hash)
+              if (ph < le0.hash) {
                 t = le0; le0 = le1; le1 = t
+              }
             }
           }
         }
@@ -897,8 +905,9 @@ object SMap {
               t = e2; e2 = e3; e3 = t
               if (lph < e1.hash) {
                 t = e1; e1 = e2; e2 = t
-                if (lph < e0.hash)
+                if (lph < e0.hash) {
                   t = e0; e0 = e1; e1 = t
+                }
               }
             }
           }
@@ -914,8 +923,9 @@ object SMap {
                 t = e2; e2 = e3; e3 = t
                 if (ph < e1.hash) {
                   t = e1; e1 = e2; e2 = t
-                  if (ph < e0.hash)
+                  if (ph < e0.hash) {
                     t = e0; e0 = e1; e1 = t
+                  }
                 }
               }
             }
@@ -935,8 +945,9 @@ object SMap {
                   t = e2; e2 = e3; e3 = t
                   if (hash < e1.hash) {
                     t = e1; e1 = e2; e2 = t
-                    if (hash < e0.hash)
+                    if (hash < e0.hash) {
                       t = e0; e0 = e1; e1 = t
+                    }
                   }
                 }
               }
@@ -1058,8 +1069,9 @@ object SMap {
             t = le2; le2 = le3; le3 = t
             if (pph < le1.hash) {
               t = le1; le1 = le2; le2 = t
-              if (pph < le0.hash)
+              if (pph < le0.hash) {
                 t = le0; le0 = le1; le1 = t
+              }
             }
           }
         }
@@ -1074,8 +1086,9 @@ object SMap {
               t = le2; le2 = le3; le3 = t
               if (ph < le1.hash) {
                 t = le1; le1 = le2; le2 = t
-                if (ph < le0.hash)
+                if (ph < le0.hash) {
                   t = le0; le0 = le1; le1 = t
+                }
               }
             }
           }

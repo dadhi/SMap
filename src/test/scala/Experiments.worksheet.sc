@@ -1,8 +1,3 @@
-import speedy.SMap
-val m = SMap.empty[Int, String]
-val e = m.updated(1, "a")
-e.getClass.getName
-
 case class Foo[@specialized(Int) T](bar: T)
 Foo(42).getClass.getName
 Foo("").getClass.getName
@@ -16,3 +11,5 @@ object M {
 
 val s = M.KVE(1, 1)
 s.getClass.getName
+
+List("0", "-1", "3", "1", "-2").map(_.toInt)

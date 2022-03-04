@@ -16,6 +16,7 @@ val projScalacOptions = List(
   "-Xlint:_",
   "-encoding",
   "UTF-8"
+  // "-Xdisable-assertions"
 )
 
 lazy val speedy = (project in file("."))
