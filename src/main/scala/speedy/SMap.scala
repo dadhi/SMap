@@ -447,9 +447,12 @@ object SMap {
     )(
         handler: (S, Int, KeyValue[K, V]) => Unit
     ): Int = {
-      for (e <- conflicts)
-        handler(state, startIndex, e)
-      startIndex + 1
+      var i = startIndex
+      for (e <- conflicts) {
+        handler(state, i, e)
+        i += 1
+      }
+      i
     }
   }
 
