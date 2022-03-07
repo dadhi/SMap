@@ -78,7 +78,7 @@ sealed trait SMap[K, V] {
   else
     getEntryOrNull(key.hashCode) match {
       case e: Entry[K, V] => {
-        val entryWithoutKey = e.tryEvict(key)
+        val entryWithoutKey = e.removeKeyOrKeep(key)
         if (entryWithoutKey eq e)
           removeEntry(e)
         else
@@ -303,25 +303,26 @@ object SMap {
 
   protected abstract class Entry[K, V](val hash: Int) extends SMap[K, V] {
 
+    /** Get the value if the `key` is matching the one stored in the entry
+      */
+    def get(key: K): Option[V]
+
+    /** Updating the entry with the new one. For the conflicted hash entry it
+      * may add the entry. It cannot return an empty map.
+      */
+    def replaceOrAdd(key: K, entry: Entry[K, V]): Entry[K, V]
+
+    /** Abstracts eviction of the key from the entry. Normally it will keep the
+      * entry because the key is part of it. But for hash-conflicted multi-key
+      * entry it produce another entry without the key.
+      */
+    def removeKeyOrKeep(key: K): Entry[K, V] = this
+
     override def size: Int = 1
     override def getMinHashEntryOrNull: Entry[K, V] = this
     override def getMaxHashEntryOrNull: Entry[K, V] = this
     override def getEntryOrNull(hash: Int): Entry[K, V] =
       if (hash == this.hash) this else null
-
-    /** Get the value if the `key` is matching the one stored in the entry
-      */
-    def get(key: K): Option[V]
-
-    /** Updating the entry with the new one. It cannot return an empty map.
-      */
-    def replaceOrAdd(key: K, entry: Entry[K, V]): Entry[K, V]
-
-    /** Abstracts eviction of the key from the entry. Normally it will keep the
-      * entry because the key is part of it. But for multi-key entry it produce
-      * another entry without the key.
-      */
-    def tryEvict(key: K): Entry[K, V] = this
 
     /** The method won't add the entry in the case of the conflicting hash here,
       * because this is the responsibility of `replaceEntry`. So you may always
@@ -420,15 +421,14 @@ object SMap {
       copy(conflicts = appendOrReplace(conflicts, newEntry, i))
     }
 
-    override def tryEvict(key: K): Entry[K, V] = {
+    override def removeKeyOrKeep(key: K): Entry[K, V] = {
       val cs = conflicts
       val i = cs.indexWhere(_.key == key)
       if (i == -1) this
       else {
         if (cs.length == 2) {
           if (i == 0) cs(1) else cs(0)
-        }
-        else {
+        } else {
           val newConflicts = new Array[KVEntry[K, V]](cs.length - 1)
           var j = 0
           for (item <- cs if j != i) {
@@ -695,10 +695,10 @@ object SMap {
       e4: Entry[K, V]
   ) extends SMap[K, V] {
 
-    assert(e0.hash < e1.hash)//, s"expected: $e0 < $e1 < $e2 < $e3 < $e4")
-    assert(e1.hash < e2.hash)//, s"expected: $e0 < $e1 < $e2 < $e3 < $e4")
-    assert(e2.hash < e3.hash)//, s"expected: $e0 < $e1 < $e2 < $e3 < $e4")
-    assert(e3.hash < e4.hash)//, s"expected: $e0 < $e1 < $e2 < $e3 < $e4")
+    assert(e0.hash < e1.hash) //, s"expected: $e0 < $e1 < $e2 < $e3 < $e4")
+    assert(e1.hash < e2.hash) //, s"expected: $e0 < $e1 < $e2 < $e3 < $e4")
+    assert(e2.hash < e3.hash) //, s"expected: $e0 < $e1 < $e2 < $e3 < $e4")
+    assert(e3.hash < e4.hash) //, s"expected: $e0 < $e1 < $e2 < $e3 < $e4")
 
     override def size = e0.size + e1.size + e2.size + e3.size + e4.size
     override def getMinHashEntryOrNull = e0
