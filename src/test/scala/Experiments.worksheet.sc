@@ -13,3 +13,5 @@ val s = M.KVE(1, 1)
 s.getClass.getName
 
 List("0", "-1", "3", "1", "-2").map(_.toInt)
+
+Map(1 -> 2).foreach { case (k, v) => println(s"$k -> $v") }

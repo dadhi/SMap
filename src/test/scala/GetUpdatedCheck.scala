@@ -1,4 +1,3 @@
-import org.scalacheck._
 import org.scalacheck.Properties
 import org.scalacheck.Prop._
 import collection.mutable._

@@ -93,7 +93,7 @@ sealed trait SMap[K, V] {
     * calls. So you may pass the empty `parentStack` into the first `foreach`
     * and then keep passing the same `parentStack` into the subsequent calls
     */
-  def foreach[S](
+  def foreachWith[S](
       state: S,
       startIndex: Int = 0,
       parentStack: ParentStack = null
@@ -118,7 +118,7 @@ sealed trait SMap[K, V] {
           m = b3.left
         }
         case entryOrLeaf => {
-          i = entryOrLeaf.foreach(s, i, p)(h)
+          i = entryOrLeaf.foreachWith(s, i, p)(h)
           if (pSize <= 0)
             // we yield the leaf and there is nothing in stack - we are DONE!
             done = true
@@ -127,11 +127,11 @@ sealed trait SMap[K, V] {
             pSize -= 1
             p(pSize) match {
               case b2: Branch2[K, V] => {
-                i = b2.e.foreach(s, i, p)(h)
+                i = b2.e.foreachWith(s, i, p)(h)
                 m = b2.right;
               }
               case b3: Branch3[K, V] => {
-                i = b3.e0.foreach(s, i, p)(h)
+                i = b3.e0.foreachWith(s, i, p)(h)
                 m = b3.mid;
                 pSize += 1
                 p.put(ForeachBranch3Marker, pSize)
@@ -141,7 +141,7 @@ sealed trait SMap[K, V] {
               case _ => {
                 pSize -= 1
                 val b3 = p(pSize).asInstanceOf[Branch3[K, V]]
-                i = b3.e1.foreach(s, i, p)(h)
+                i = b3.e1.foreachWith(s, i, p)(h)
                 m = b3.right;
               }
             }
@@ -151,6 +151,9 @@ sealed trait SMap[K, V] {
     }
     i
   }
+
+  def foreach[U](f: ((K, V)) => U)(implicit ex: DummyImplicit): Unit =
+    foreachWith[((K, V)) => U](f)((f_, _, kv) => f_(KeyValue.tupled2(kv)))
 }
 
 object SMap {
@@ -298,7 +301,12 @@ object SMap {
   }
 
   object KeyValue {
-    def unapply[K, V](kv: KeyValue[K, V]): (K, V) = (kv.key, kv.value)
+    def unapply[K, V](kv: KeyValue[K, V]): Option[(K, V, Int)] = Some(
+      (kv.key, kv.value, kv.hash)
+    )
+    def tupled2[K, V](kv: KeyValue[K, V]): (K, V) = (kv.key, kv.value)
+    def tupled3[K, V](kv: KeyValue[K, V]): (K, V, Int) =
+      (kv.key, kv.value, kv.hash)
   }
 
   protected abstract class Entry[K, V](val hash: Int) extends SMap[K, V] {
@@ -363,7 +371,7 @@ object SMap {
     override def replaceOrAdd(key: Int, entry: Entry[Int, V]): Entry[Int, V] =
       entry
 
-    override def foreach[S](
+    override def foreachWith[S](
         state: S,
         startIndex: Int = 0,
         parentStack: ParentStack = null
@@ -392,7 +400,7 @@ object SMap {
         HashConflictingEntry(hash, Array(newEntry, this))
       }
 
-    override def foreach[S](
+    override def foreachWith[S](
         state: S,
         startIndex: Int = 0,
         parentStack: ParentStack = null
@@ -440,7 +448,7 @@ object SMap {
       }
     }
 
-    override def foreach[S](
+    override def foreachWith[S](
         state: S,
         startIndex: Int = 0,
         parentStack: ParentStack = null
@@ -496,7 +504,7 @@ object SMap {
     override def removeEntry(entry: Entry[K, V]): SMap[K, V] =
       if (e0 eq entry) e1 else e0
 
-    override def foreach[S](
+    override def foreachWith[S](
         state: S,
         startIndex: Int = 0,
         parentStack: ParentStack = null
@@ -504,8 +512,8 @@ object SMap {
         handler: (S, Int, KeyValue[K, V]) => Unit
     ): Int = {
       var i = startIndex
-      i = e0.foreach(state, i, parentStack)(handler)
-      i = e1.foreach(state, i, parentStack)(handler)
+      i = e0.foreachWith(state, i, parentStack)(handler)
+      i = e1.foreachWith(state, i, parentStack)(handler)
       i + 1
     }
   }
@@ -548,7 +556,7 @@ object SMap {
       else (if (p.hash < l.e0.hash) Leaf2(p, l.e0)
             else Leaf2(l.e0, p))
 
-    override def foreach[S](
+    override def foreachWith[S](
         state: S,
         startIndex: Int = 0,
         parentStack: ParentStack = null
@@ -564,9 +572,9 @@ object SMap {
         }
       }
       var i = startIndex
-      i = le0.foreach(state, i, parentStack)(handler)
-      i = le1.foreach(state, i, parentStack)(handler)
-      i = lp.foreach(state, i, parentStack)(handler)
+      i = le0.foreachWith(state, i, parentStack)(handler)
+      i = le1.foreachWith(state, i, parentStack)(handler)
+      i = lp.foreachWith(state, i, parentStack)(handler)
       i
     }
   }
@@ -655,7 +663,7 @@ object SMap {
       else (if (l.p.hash < l.l.e0.hash) Leaf2Plus(p, Leaf2(l.p, l.l.e0))
             else Leaf2Plus(p, Leaf2(l.l.e0, l.p)))
 
-    override def foreach[S](
+    override def foreachWith[S](
         state: S,
         startIndex: Int = 0,
         parentStack: ParentStack = null
@@ -682,10 +690,10 @@ object SMap {
         }
       }
       var i = startIndex
-      i = le0.foreach(state, i, parentStack)(handler)
-      i = le1.foreach(state, i, parentStack)(handler)
-      i = lpp.foreach(state, i, parentStack)(handler)
-      i = lp.foreach(state, i, parentStack)(handler)
+      i = le0.foreachWith(state, i, parentStack)(handler)
+      i = le1.foreachWith(state, i, parentStack)(handler)
+      i = lpp.foreachWith(state, i, parentStack)(handler)
+      i = lp.foreachWith(state, i, parentStack)(handler)
       i
     }
   }
@@ -740,7 +748,7 @@ object SMap {
       else
         Leaf2PlusPlus(e3, Leaf2Plus(e2, Leaf2(e0, e1)))
 
-    override def foreach[S](
+    override def foreachWith[S](
         state: S,
         startIndex: Int = 0,
         parentStack: ParentStack = null
@@ -748,11 +756,11 @@ object SMap {
         handler: (S, Int, KeyValue[K, V]) => Unit
     ): Int = {
       var i = startIndex
-      i = e0.foreach(state, i, parentStack)(handler)
-      i = e1.foreach(state, i, parentStack)(handler)
-      i = e2.foreach(state, i, parentStack)(handler)
-      i = e3.foreach(state, i, parentStack)(handler)
-      i = e4.foreach(state, i, parentStack)(handler)
+      i = e0.foreachWith(state, i, parentStack)(handler)
+      i = e1.foreachWith(state, i, parentStack)(handler)
+      i = e2.foreachWith(state, i, parentStack)(handler)
+      i = e3.foreachWith(state, i, parentStack)(handler)
+      i = e4.foreachWith(state, i, parentStack)(handler)
       i
     }
   }
@@ -826,7 +834,7 @@ object SMap {
         else Leaf5(e0, e1, e2, e3, e4)
       }
 
-    override def foreach[S](
+    override def foreachWith[S](
         state: S,
         startIndex: Int = 0,
         parentStack: ParentStack = null
@@ -853,12 +861,12 @@ object SMap {
       }
 
       var i = startIndex
-      i = le0.foreach(state, i, parentStack)(handler)
-      i = le1.foreach(state, i, parentStack)(handler)
-      i = le2.foreach(state, i, parentStack)(handler)
-      i = le3.foreach(state, i, parentStack)(handler)
-      i = le4.foreach(state, i, parentStack)(handler)
-      i = lp.foreach(state, i, parentStack)(handler)
+      i = le0.foreachWith(state, i, parentStack)(handler)
+      i = le1.foreachWith(state, i, parentStack)(handler)
+      i = le2.foreachWith(state, i, parentStack)(handler)
+      i = le3.foreachWith(state, i, parentStack)(handler)
+      i = le4.foreachWith(state, i, parentStack)(handler)
+      i = lp.foreachWith(state, i, parentStack)(handler)
       i
     }
   }
@@ -1053,7 +1061,7 @@ object SMap {
       }
     }
 
-    override def foreach[S](
+    override def foreachWith[S](
         state: S,
         startIndex: Int = 0,
         parentStack: ParentStack = null
@@ -1099,13 +1107,13 @@ object SMap {
       }
 
       var i = startIndex
-      i = le0.foreach(state, i, parentStack)(handler)
-      i = le1.foreach(state, i, parentStack)(handler)
-      i = le2.foreach(state, i, parentStack)(handler)
-      i = le3.foreach(state, i, parentStack)(handler)
-      i = le4.foreach(state, i, parentStack)(handler)
-      i = lpp.foreach(state, i, parentStack)(handler)
-      i = lp.foreach(state, i, parentStack)(handler)
+      i = le0.foreachWith(state, i, parentStack)(handler)
+      i = le1.foreachWith(state, i, parentStack)(handler)
+      i = le2.foreachWith(state, i, parentStack)(handler)
+      i = le3.foreachWith(state, i, parentStack)(handler)
+      i = le4.foreachWith(state, i, parentStack)(handler)
+      i = lpp.foreachWith(state, i, parentStack)(handler)
+      i = lp.foreachWith(state, i, parentStack)(handler)
       i
     }
   }
