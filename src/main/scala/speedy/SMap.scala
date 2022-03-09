@@ -54,12 +54,6 @@ sealed trait SMap[K, V] {
     */
   protected def removeEntry(entry: Entry[K, V]): SMap[K, V] = this
 
-  /** Creates a new map obtained by updating this map with a given key/value
-    * pair.
-    */
-  def updated(key: K, value: V): SMap[K, V] =
-    updated(key, createEntry(key, value))
-
   def updated(key: K, entry: Entry[K, V]): SMap[K, V] = {
     addOrGetEntry(entry) match {
       case found: Entry[K, V] if (found ne entry) =>
@@ -68,9 +62,34 @@ sealed trait SMap[K, V] {
     }
   }
 
+  /** Creates a new map obtained by updating this map with a given key/value
+    * pair.
+    */
+  def updated(key: K, value: V): SMap[K, V] =
+    updated(key, createEntry(key, value))
+
   /** Alias for `updated`
     */
   def +(kv: (K, V)): SMap[K, V] = updated(kv._1, kv._2)
+
+  /** Produces the new map with the new entry or returns the existing map if the
+    * entry with the key is already present
+    */
+  def updatedOrKept(key: K, entry: Entry[K, V]): SMap[K, V] = {
+    addOrGetEntry(entry) match {
+      case found: Entry[K, V] if (found ne entry) => {
+        val newEntry = found.keepOrAdd(key, entry)
+        if (newEntry eq found) this else replaceEntry(found, newEntry)
+      }
+      case newMap => newMap
+    }
+  }
+
+  /** Produces the new map with the new entry or returns the existing map if the
+    * entry with the key is already present
+    */
+  def updatedOrKept(key: K, value: V): SMap[K, V] =
+    updatedOrKept(key, createEntry(key, value))
 
   /** Returns the new map without the specified hash and key (if found) or
     * returns the same map otherwise
@@ -327,6 +346,11 @@ object SMap {
       */
     def replaceOrAdd(key: K, entry: Entry[K, V]): Entry[K, V]
 
+    /** If the `key` is present in entry then return the original, otherwise
+      * adds the new entry.
+      */
+    def keepOrAdd(key: K, entry: Entry[K, V]): Entry[K, V]
+
     /** Abstracts eviction of the key from the entry. Normally it will keep the
       * entry because the key is part of it. But for hash-conflicted multi-key
       * entry it produce another entry without the key.
@@ -378,6 +402,9 @@ object SMap {
     override def replaceOrAdd(key: Int, entry: Entry[Int, V]): Entry[Int, V] =
       entry
 
+    override def keepOrAdd(key: Int, entry: Entry[Int, V]): Entry[Int, V] =
+      this
+
     override def foreachWith[S](
         state: S,
         startIndex: Int = 0,
@@ -407,6 +434,13 @@ object SMap {
         HashConflictingEntry(hash, Array(newEntry, this))
       }
 
+    override def keepOrAdd(key: K, entry: Entry[K, V]): Entry[K, V] =
+      if (this.key == key) this
+      else {
+        val newEntry = entry.asInstanceOf[KVEntry[K, V]]
+        HashConflictingEntry(hash, Array(newEntry, this))
+      }
+
     override def foreachWith[S](
         state: S,
         startIndex: Int = 0,
@@ -431,9 +465,20 @@ object SMap {
 
     override def replaceOrAdd(key: K, entry: Entry[K, V]): Entry[K, V] = {
       val i = conflicts.indexWhere(_.key == key)
-      // todo: @safety try to remove asInstanceOf here
+      // todo: @safety @simplify try to remove asInstanceOf here
       val newEntry = entry.asInstanceOf[KVEntry[K, V]]
       copy(conflicts = appendOrReplace(conflicts, newEntry, i))
+    }
+
+    override def keepOrAdd(key: K, entry: Entry[K, V]): Entry[K, V] = {
+      val i = conflicts.indexWhere(_.key == key)
+      if (i != -1)
+        this
+      else {
+        // todo: @safety @simplify try to remove asInstanceOf here
+        val newEntry = entry.asInstanceOf[KVEntry[K, V]]
+        copy(conflicts = append(conflicts, newEntry))
+      }
     }
 
     override def removeKeyOrKeep(key: K): Entry[K, V] = {
@@ -477,6 +522,15 @@ object SMap {
     val newItems = new Array[T](if (i != -1) items.length else items.length + 1)
     items.copyToArray(newItems)
     newItems(if (i != -1) i else items.length) = item
+    newItems
+  }
+
+  private def append[T](items: Array[T], item: T)(implicit
+      ev: ClassTag[T]
+  ): Array[T] = {
+    val newItems = new Array[T](items.length + 1)
+    items.copyToArray(newItems)
+    newItems(items.length) = item
     newItems
   }
 

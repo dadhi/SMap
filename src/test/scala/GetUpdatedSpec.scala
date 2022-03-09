@@ -37,9 +37,8 @@ class GetUpdatedSpec extends AnyFunSuite with Matchers {
     m.size shouldBe 1
     m.toList shouldBe List(1 -> "a")
 
-    // Assert.AreEqual(null, m.GetValueOrDefault(10));
-    // CollectionAssert.AreEquivalent(new[] { 1 }, m.Enumerate().Select(x => x.Hash));
-    // Assert.AreEqual(1, m.Count());
+    m.updatedOrKept(1, "aa") shouldBe m
+    m.updatedOrKept(2, "b").toList shouldBe List(1 -> "a", 2 -> "b")
 
     // Assert.AreSame(m, m.AddOrKeep(1, "aa"));
 
