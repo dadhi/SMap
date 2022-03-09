@@ -248,4 +248,40 @@ class GetUpdatedSpec extends AnyFunSuite with Matchers {
     r = m.removed(25).removed(21)
     assert(r.get(21).isEmpty)
   }
+
+  class Xk[K](val key: K) {
+    override def hashCode(): Int = 1
+    override def equals(o: Any): Boolean = o match {
+      case x: Xk[K] => key == x.key
+      case _        => false
+    }
+  }
+
+  object Xk {
+    def apply[K](key: K) = new Xk[K](key)
+  }
+
+  test("adding the conflicting keys should be fun") {
+    var m = SMap.empty[Xk[Int], String]
+
+    assert(None == m.get(Xk(0)))
+    assert(None == m.get(Xk(13)))
+
+    m = m + ((Xk(1), "a")) + ((Xk(2), "b"))
+
+    assert(Some("a") == m.get(Xk(1)))
+    assert(Some("b") == m.get(Xk(2)))
+    assert(None      == m.get(Xk(10)))
+
+    var mr = m.removed(Xk(1))
+    assert(None == mr.get(Xk(1)))
+    assert(Some("b") == mr.get(Xk(2)))
+    
+    m = m.updated(Xk(3), "c")
+    mr = m.removed(Xk(2))
+    assert(mr.size == 2)
+    assert(None == mr.get(Xk(2)))
+    assert(Some("a") == mr.get(Xk(1)))
+    assert(Some("c") == mr.get(Xk(3)))
+  }
 }

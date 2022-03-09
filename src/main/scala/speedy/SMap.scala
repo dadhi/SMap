@@ -460,8 +460,10 @@ object SMap {
 
     override def size: Int = conflicts.length
 
-    override def get(key: K): Option[V] =
-      conflicts.find(_.key == key).map(_.value)
+    override def get(key: K): Option[V] = {
+      val i = conflicts.indexWhere(_.key == key)
+      if (i != -1) Some(conflicts(i).value) else None
+    }
 
     override def replaceOrAdd(key: K, entry: Entry[K, V]): Entry[K, V] = {
       val i = conflicts.indexWhere(_.key == key)
@@ -490,10 +492,13 @@ object SMap {
           if (i == 0) cs(1) else cs(0)
         } else {
           val newConflicts = new Array[KVEntry[K, V]](cs.length - 1)
-          var j = 0
-          for (item <- cs if j != i) {
-            newConflicts(j) = item
-            j += 1
+          var it = 0; var j = 0
+          for (item <- cs) {
+            if (it != i) {
+              newConflicts(j) = item
+              j += 1
+            }
+            it += 1
           }
           HashConflictingEntry(hash, newConflicts)
         }
