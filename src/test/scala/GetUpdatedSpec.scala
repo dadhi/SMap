@@ -40,20 +40,23 @@ class GetUpdatedSpec extends AnyFunSuite with Matchers {
     m.updatedOrKept(1, "aa") shouldBe m
     m.updatedOrKept(2, "b").toList shouldBe List(1 -> "a", 2 -> "b")
 
-    // Assert.AreSame(m, m.AddOrKeep(1, "aa"));
+    var mr = m.removed(1)
+    mr.isEmpty shouldBe true
 
-    // var mr = m.Remove(1);
-    // Assert.AreSame(ImHashMap<int, string>.Empty, mr);
-    // Assert.AreEqual(0, mr.Count());
+    m = m.updated(2, "b");
+    m.getOrElse(2, null) shouldBe "b"
+    m.getOrElse(1, null) shouldBe "a"
+    m.getOrElse(10, null) shouldBe null
+    m.size shouldBe 2
+    m.toList shouldBe List(1 -> "a", 2 -> "b")
 
-    // m = m.AddOrUpdate(2, "b");
-    // Assert.AreEqual("b",  m.GetValueOrDefault(2));
-    // Assert.AreEqual("a",  m.GetValueOrDefault(1));
-    // Assert.AreEqual(null, m.GetValueOrDefault(10));
-    // CollectionAssert.AreEquivalent(new[] { 1, 2 }, m.Enumerate().Select(x => x.Hash));
-    // Assert.AreEqual(2, m.Count());
-
-    // Assert.AreSame(m, m.AddOrKeep(1, "aa").AddOrKeep(2, "bb"));
+    m.updatedOrKept(1, "aa").updatedOrKept(2, "bb") shouldBe m
+    m.removed(0) shouldBe m
+    mr = m.removed(2)
+    mr.getOrElse(1, null) shouldBe "a"
+    mr.size shouldBe 1
+    
+    // Assert.AreSame(m, );
     // Assert.AreSame(m, m.Remove(0));
     // mr = m.Remove(2);
     // Assert.AreEqual("a", mr.GetValueOrDefault(1));
