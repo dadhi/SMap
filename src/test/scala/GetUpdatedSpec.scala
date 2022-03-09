@@ -24,16 +24,14 @@ class GetUpdatedSpec extends AnyFunSuite with Matchers {
   }
 
   test("Updating the rather big map and checking it on every update") {
-    val m = SMap.empty[Int, String]
+    var m = SMap.empty[Int, String]
 
     m.getOrElse(0, "") shouldBe ""
     m.getOrElse(13, null) shouldBe null
     m.size shouldBe 0
-    val l = ListBuffer.empty[Int]
-    m.foreach { case (k, v) => l += k }
-    assert(l.isEmpty)
+    m.toList.isEmpty shouldBe true
 
-    // m = m.AddOrUpdate(1, "a");
+    m = m.updated(1, "a");
     // Assert.AreEqual("a",  m.GetValueOrDefault(1));
     // Assert.AreEqual(null, m.GetValueOrDefault(10));
     // CollectionAssert.AreEquivalent(new[] { 1 }, m.Enumerate().Select(x => x.Hash));

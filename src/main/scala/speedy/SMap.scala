@@ -1,6 +1,7 @@
 package speedy
 
 import scala.reflect.ClassTag
+import scala.collection.mutable.ListBuffer
 
 /** The type of value `V` is not covariant as in the `Map[K, +V]` because SMap
   * allows to modify the value inside the entry. So in a sense it is
@@ -152,8 +153,14 @@ sealed trait SMap[K, V] {
     i
   }
 
-  def foreach[U](f: ((K, V)) => U)(implicit ex: DummyImplicit): Unit =
+  def foreach[U](f: ((K, V)) => U): Unit =
     foreachWith[((K, V)) => U](f)((f_, _, kv) => f_(KeyValue.tupled2(kv)))
+
+  def toList: List[(K, V)] = {
+    val l = ListBuffer.empty[(K, V)]
+    foreachWith(l) { (l, _, kv) => l.+=((kv.key, kv.value)) }
+    l.toList;
+  }
 }
 
 object SMap {
