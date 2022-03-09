@@ -32,7 +32,11 @@ class GetUpdatedSpec extends AnyFunSuite with Matchers {
     m.toList.isEmpty shouldBe true
 
     m = m.updated(1, "a");
-    // Assert.AreEqual("a",  m.GetValueOrDefault(1));
+    m.getOrElse(1, "") shouldBe "a"
+    m.getOrElse(10, null) shouldBe null
+    m.size shouldBe 1
+    m.toList shouldBe List(1 -> "a")
+
     // Assert.AreEqual(null, m.GetValueOrDefault(10));
     // CollectionAssert.AreEquivalent(new[] { 1 }, m.Enumerate().Select(x => x.Hash));
     // Assert.AreEqual(1, m.Count());
