@@ -337,6 +337,10 @@ object SMap {
 
   protected abstract class Entry[K, V](val hash: Int) extends SMap[K, V] {
 
+    /** The key
+     */
+    def key: K
+
     /** Get the value if the `key` is matching the one stored in the entry
       */
     def get(key: K): Option[V]
@@ -457,6 +461,9 @@ object SMap {
       override val hash: Int,
       conflicts: Array[KVEntry[K, V]]
   ) extends Entry[K, V](hash) {
+
+    override def key: K = throw new UnsupportedOperationException(
+      "A single key is not supported and does not make sense in the multi-keyed entry");
 
     override def size: Int = conflicts.length
 
