@@ -33,6 +33,14 @@ sealed trait SMap[K, V] {
     */
   protected def getEntryOrNull(hash: Int): Entry[K, V] = null
 
+  /** Lookup for the sure present entry by hash. Can be safely done after adding
+    * entry to the map, because hey! - the map is immutable and guarantees that
+    * the entry won't disappear. The method is optimization over
+    * `getEntryOrNull` avoiding unnecessary checks.
+    */
+  def getSurePresentEntry(hash: Int): Entry[K, V] =
+    throw new IllegalStateException("Should not be called on the empty map")
+
   /** Returns the found entry with the same hash or the new map with added new
     * entry. Note that the empty map will return the entry the same as if the
     * entry was found - so the consumer should check for the empty map. Note
@@ -341,6 +349,10 @@ object SMap {
       */
     def get(key: K): Option[V]
 
+    /** Get the value or throw the exception if the `key` is not found
+      */
+    def getValue(key: K): V
+
     /** Updating the entry with the new one. For the conflicted hash entry it
       * may add the entry. It cannot return an empty map.
       */
@@ -362,6 +374,7 @@ object SMap {
     override def getMaxHashEntryOrNull: Entry[K, V] = this
     override def getEntryOrNull(hash: Int): Entry[K, V] =
       if (hash == this.hash) this else null
+    override def getSurePresentEntry(hash: Int): Entry[K, V] = this
 
     /** The method won't add the entry in the case of the conflicting hash here,
       * because this is the responsibility of `replaceEntry`. So you may always
@@ -399,6 +412,10 @@ object SMap {
     override def get(key: Int): Option[V] =
       if (key == hash) Some(value) else None
 
+    override def getValue(key: Int): V =
+      if (key == hash) value
+      else throw new IllegalStateException(s"key `$key` not found")
+
     override def replaceOrAdd(key: Int, entry: Entry[Int, V]): Entry[Int, V] =
       entry
 
@@ -426,6 +443,10 @@ object SMap {
 
     override def get(key: K): Option[V] =
       if (this.key == key) Some(value) else None
+
+    override def getValue(key: K): V =
+      if (this.key == key) value
+      else throw new IllegalStateException(s"key `$key` is not found")
 
     override def replaceOrAdd(key: K, entry: Entry[K, V]): Entry[K, V] =
       if (this.key == key) entry
@@ -463,6 +484,12 @@ object SMap {
     override def get(key: K): Option[V] = {
       val i = conflicts.indexWhere(_.key == key)
       if (i != -1) Some(conflicts(i).value) else None
+    }
+
+    override def getValue(key: K): V = {
+      val i = conflicts.indexWhere(_.key == key)
+      if (i != -1) conflicts(i).value
+      else throw new IllegalStateException(s"key `$key` not found")
     }
 
     override def replaceOrAdd(key: K, entry: Entry[K, V]): Entry[K, V] = {
@@ -554,6 +581,9 @@ object SMap {
       case _       => null
     }
 
+    override def getSurePresentEntry(hash: Int): Entry[K, V] =
+      if (hash == e0.hash) e0 else e1
+
     override def addOrGetEntry(entry: Entry[K, V]): SMap[K, V] =
       entry.hash match {
         case e0.hash => e0
@@ -599,6 +629,9 @@ object SMap {
       case l.e1.hash => l.e1
       case _         => null
     }
+
+    override def getSurePresentEntry(hash: Int): Entry[K, V] =
+      if (hash == p.hash) p else if (hash == l.e0.hash) l.e0 else l.e1
 
     override def addOrGetEntry(entry: Entry[K, V]): SMap[K, V] = {
       val found = getEntryOrNull(entry.hash)
@@ -663,6 +696,9 @@ object SMap {
 
     override def getEntryOrNull(hash: Int) =
       if (hash == p.hash) p else l.getEntryOrNull(hash)
+
+    override def getSurePresentEntry(hash: Int) =
+      if (hash == p.hash) p else l.getSurePresentEntry(hash)
 
     override def addOrGetEntry(entry: Entry[K, V]): SMap[K, V] = {
       val found = getEntryOrNull(entry.hash)
@@ -790,6 +826,14 @@ object SMap {
       case _       => null
     }
 
+    override def getSurePresentEntry(hash: Int) = hash match {
+      case e0.hash => e0
+      case e1.hash => e1
+      case e2.hash => e2
+      case e3.hash => e3
+      case _       => e4
+    }
+
     override def addOrGetEntry(entry: Entry[K, V]): SMap[K, V] = {
       val found = getEntryOrNull(entry.hash)
       if (found ne null) found else Leaf5Plus(entry, this)
@@ -846,6 +890,15 @@ object SMap {
       case l.e3.hash => l.e3
       case l.e4.hash => l.e4
       case _         => null
+    }
+
+    override def getSurePresentEntry(hash: Int): Entry[K, V] = hash match {
+      case p.hash    => p
+      case l.e0.hash => l.e0
+      case l.e1.hash => l.e1
+      case l.e2.hash => l.e2
+      case l.e3.hash => l.e3
+      case _         => l.e4
     }
 
     override def addOrGetEntry(entry: Entry[K, V]): SMap[K, V] = {
@@ -959,6 +1012,11 @@ object SMap {
       if (hash == p.hash) p
       else if (hash == l.p.hash) l.p
       else l.l.getEntryOrNull(hash)
+
+    override def getSurePresentEntry(hash: Int) =
+      if (hash == p.hash) p
+      else if (hash == l.p.hash) l.p
+      else l.l.getSurePresentEntry(hash)
 
     override def addOrGetEntry(entry: Entry[K, V]) = {
       val hash = entry.hash
@@ -1203,6 +1261,11 @@ object SMap {
       else if (hash < e.hash) left.getEntryOrNull(hash)
       else e
 
+    override def getSurePresentEntry(hash: Int) =
+      if (hash > e.hash) right.getSurePresentEntry(hash)
+      else if (hash < e.hash) left.getSurePresentEntry(hash)
+      else e
+
     override def addOrGetEntry(entry: Entry[K, V]) = {
       val hash = entry.hash
       if (hash > e.hash)
@@ -1334,6 +1397,13 @@ object SMap {
       else if (hash == e0.hash) e0
       else if (hash == e1.hash) e1
       else mid.getEntryOrNull(hash)
+
+    override def getSurePresentEntry(hash: Int) =
+      if (hash > e1.hash) right.getSurePresentEntry(hash)
+      else if (hash < e0.hash) left.getSurePresentEntry(hash)
+      else if (hash == e0.hash) e0
+      else if (hash == e1.hash) e1
+      else mid.getSurePresentEntry(hash)
 
     override def addOrGetEntry(entry: Entry[K, V]) = {
       val hash = entry.hash; val h0 = e0.hash; val h1 = e1.hash

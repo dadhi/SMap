@@ -20,7 +20,7 @@ object GetUpdatedCheck extends Properties("SMap") {
     }
   }
 
-  property("updated updated") = {
+  property("updated and getSurePresentEntry") = {
     forAll { list: List[Int] =>
       var map = SMap.empty[Int, Int]
       for (n <- list)
@@ -28,7 +28,7 @@ object GetUpdatedCheck extends Properties("SMap") {
 
       val values = new ArrayBuffer[Int](list.size)
       for (n <- list)
-        values += map.getOrElse(n, 0)
+        values += map.getSurePresentEntry(n).getValue(n)
 
       "Input list: #1" |: list == values.toList
     }
