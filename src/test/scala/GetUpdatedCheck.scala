@@ -19,4 +19,18 @@ object GetUpdatedCheck extends Properties("SMap") {
       "Input list: #1" |: list == values.toList
     }
   }
+
+  property("updated updated") = {
+    forAll { list: List[Int] =>
+      var map = SMap.empty[Int, Int]
+      for (n <- list)
+        map = map.updated(n, n)
+
+      val values = new ArrayBuffer[Int](list.size)
+      for (n <- list)
+        values += map.getOrElse(n, 0)
+
+      "Input list: #1" |: list == values.toList
+    }
+  }
 }
