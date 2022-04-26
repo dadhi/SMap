@@ -11,8 +11,19 @@ import scala.collection.mutable.ListBuffer
   * and update it later without worries of SMap structure additions or
   * modifications.
   */
-sealed trait SMap[K, V] {
+sealed trait SMap[K, V] extends PartialFunction[K, V] { self =>
   import SMap._
+
+    @throws[NoSuchElementException]
+    override def apply(key: K): V =
+      self.get(key) match {
+        case Some(value) => value
+        case None =>
+          throw new NoSuchElementException(s"No element with the key `$key`")
+      }
+
+  override def isDefinedAt(x: K): Boolean =
+    self.contains(x)
 
   /** Indicates that the map is empty
     */
@@ -253,8 +264,8 @@ object SMap {
   private object ForeachBranch3Marker
 
   implicit class Extensions[K, V](val map: SMap[K, V]) extends AnyVal {
+    // todo: @perf match on Entry to get value directly or better to override get somehow?
     def get(key: K): Option[V] =
-      // todo: @perf match on Entry to get value directly or better to override get somehow?
       map.getEntryOrNull(key.hashCode) match {
         case e: Entry[K, V] => e.get(key)
         case _              => None
@@ -275,7 +286,8 @@ object SMap {
     def apply(key: K): V =
       get(key) match {
         case Some(value) => value
-        case None        => default(key)
+        case None =>
+          throw new NoSuchElementException(s"No element with the key `$key`")
       }
 
     /** Update a mapping for the specified key and its current optionally-mapped
@@ -324,7 +336,8 @@ object SMap {
     def apply(key: Int): V =
       map.getEntryOrNull(key) match {
         case e: VEntry[V] => e.value
-        case _            => default(key)
+        case _ =>
+          throw new NoSuchElementException(s"No element with the key `$key`")
       }
   }
 
@@ -352,6 +365,8 @@ object SMap {
     /** Get the value or throw the exception if the `key` is not found
       */
     def getValue(key: K): V
+
+    //todo: @wip @perf add `getOrElse` without Option mediator
 
     /** Updating the entry with the new one. For the conflicted hash entry it
       * may add the entry. It cannot return an empty map.
