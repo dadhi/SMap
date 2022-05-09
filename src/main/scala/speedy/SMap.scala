@@ -14,13 +14,13 @@ import scala.collection.mutable.ListBuffer
 sealed trait SMap[K, V] extends PartialFunction[K, V] { self =>
   import SMap._
 
-    @throws[NoSuchElementException]
-    override def apply(key: K): V =
-      self.get(key) match {
-        case Some(value) => value
-        case None =>
-          throw new NoSuchElementException(s"No element with the key `$key`")
-      }
+  @throws[NoSuchElementException]
+  override def apply(key: K): V =
+    self.get(key) match {
+      case Some(value) => value
+      case None =>
+        throw new NoSuchElementException(s"No element with the key `$key`")
+    }
 
   override def isDefinedAt(x: K): Boolean =
     self.contains(x)
@@ -278,6 +278,15 @@ object SMap {
       */
     def contains(key: K): Boolean = get(key).isDefined
 
+    /** Tests whether this map contains a key.
+      */
+    def contains2(key: K): Boolean = ???
+
+    // map.getEntryOrNull(key.hashCode) match {
+    //   case e: Entry[K, V] => e.get(key)
+    //   case _              => None
+    // }
+
     /** Defines the default value computation for the map, returned when a key
       * is not found. The method implemented here throws an exception, but it
       * might be overridden in subclasses.
@@ -362,6 +371,14 @@ object SMap {
       */
     def get(key: K): Option[V]
 
+    /** Get the value if the `key` is matching the one stored in the entry
+      */
+    def getOrElse(key: K, default: => V): V
+
+    /** Get the value if the `key` is matching the one stored in the entry
+      */
+    def contains(key: K): Boolean
+
     /** Get the value or throw the exception if the `key` is not found
       */
     def getValue(key: K): V
@@ -427,6 +444,12 @@ object SMap {
     override def get(key: Int): Option[V] =
       if (key == hash) Some(value) else None
 
+    override def getOrElse(key: Int, default: => V): V =
+      if (key == hash) value else default
+
+    override def contains(key: Int): Boolean =
+      key == hash
+
     override def getValue(key: Int): V =
       if (key == hash) value
       else throw new IllegalStateException(s"key `$key` not found")
@@ -458,6 +481,12 @@ object SMap {
 
     override def get(key: K): Option[V] =
       if (this.key == key) Some(value) else None
+
+    override def getOrElse(key: K, default: => V): V =
+      if (this.key == key) value else default
+      
+    def contains(key: K): Boolean =
+      this.key == key
 
     override def getValue(key: K): V =
       if (this.key == key) value
@@ -500,6 +529,14 @@ object SMap {
       val i = conflicts.indexWhere(_.key == key)
       if (i != -1) Some(conflicts(i).value) else None
     }
+
+    override def getOrElse(key: K, default: => V): V = {
+      val i = conflicts.indexWhere(_.key == key)
+      if (i != -1) conflicts(i).value else default
+    }
+
+    override def contains(key: K): Boolean =
+      conflicts.indexWhere(_.key == key) != -1
 
     override def getValue(key: K): V = {
       val i = conflicts.indexWhere(_.key == key)
