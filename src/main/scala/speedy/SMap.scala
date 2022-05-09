@@ -11,16 +11,16 @@ import scala.collection.mutable.ListBuffer
   * and update it later without worries of SMap structure additions or
   * modifications.
   */
-sealed trait SMap[K, V] extends PartialFunction[K, V] { self =>
+sealed trait SMap[K, V] extends PartialFunction[K, V] {
+  self => // todo: @wip make V covariant +V
   import SMap._
 
   @throws[NoSuchElementException]
   override def apply(key: K): V =
-    self.get(key) match {
-      case Some(value) => value
-      case None =>
-        throw new NoSuchElementException(s"No element with the key `$key`")
-    }
+    self.getOrElse(
+      key,
+      throw new NoSuchElementException(s"No element with the key `$key`")
+    )
 
   override def isDefinedAt(x: K): Boolean =
     self.contains(x)
@@ -264,7 +264,6 @@ object SMap {
   private object ForeachBranch3Marker
 
   implicit class Extensions[K, V](val map: SMap[K, V]) extends AnyVal {
-    // todo: @perf match on Entry to get value directly or better to override get somehow?
     def get(key: K): Option[V] =
       map.getEntryOrNull(key.hashCode) match {
         case e: Entry[K, V] => e.get(key)
@@ -272,20 +271,18 @@ object SMap {
       }
 
     def getOrElse[V1 >: V](key: K, default: => V1): V1 =
-      get(key).getOrElse(default)
+      map.getEntryOrNull(key.hashCode) match {
+        case e: Entry[K, V] => e.getOrElse(key, default)
+        case _              => default
+      }
 
     /** Tests whether this map contains a key.
       */
-    def contains(key: K): Boolean = get(key).isDefined
-
-    /** Tests whether this map contains a key.
-      */
-    def contains2(key: K): Boolean = ???
-
-    // map.getEntryOrNull(key.hashCode) match {
-    //   case e: Entry[K, V] => e.get(key)
-    //   case _              => None
-    // }
+    def contains(key: K): Boolean =
+      map.getEntryOrNull(key.hashCode) match {
+        case e: Entry[K, V] => e.contains(key)
+        case _              => false
+      }
 
     /** Defines the default value computation for the map, returned when a key
       * is not found. The method implemented here throws an exception, but it
@@ -331,11 +328,15 @@ object SMap {
       }
 
     def getOrElse[V1 >: V](key: Int, default: => V1): V1 =
-      get(key).getOrElse(default)
+      map.getEntryOrNull(key) match {
+        case e: VEntry[V] => e.value
+        case _            => default
+      }
 
     /** Tests whether this map contains a key.
       */
-    def contains(key: Int): Boolean = get(key).isDefined
+    def contains(key: Int): Boolean =
+      map.getEntryOrNull(key) != null
 
     /** Defines the default value computation for the map, returned when a key
       * is not found. The method implemented here throws an exception, but it
@@ -373,7 +374,7 @@ object SMap {
 
     /** Get the value if the `key` is matching the one stored in the entry
       */
-    def getOrElse(key: K, default: => V): V
+    def getOrElse[V1 >: V](key: K, default: => V1): V1
 
     /** Get the value if the `key` is matching the one stored in the entry
       */
@@ -444,7 +445,7 @@ object SMap {
     override def get(key: Int): Option[V] =
       if (key == hash) Some(value) else None
 
-    override def getOrElse(key: Int, default: => V): V =
+    override def getOrElse[V1 >: V](key: Int, default: => V1): V1 =
       if (key == hash) value else default
 
     override def contains(key: Int): Boolean =
@@ -482,9 +483,9 @@ object SMap {
     override def get(key: K): Option[V] =
       if (this.key == key) Some(value) else None
 
-    override def getOrElse(key: K, default: => V): V =
+    override def getOrElse[V1 >: V](key: K, default: => V1): V1 =
       if (this.key == key) value else default
-      
+
     def contains(key: K): Boolean =
       this.key == key
 
@@ -530,7 +531,7 @@ object SMap {
       if (i != -1) Some(conflicts(i).value) else None
     }
 
-    override def getOrElse(key: K, default: => V): V = {
+    override def getOrElse[V1 >: V](key: K, default: => V1): V1 = {
       val i = conflicts.indexWhere(_.key == key)
       if (i != -1) conflicts(i).value else default
     }
