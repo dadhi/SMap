@@ -1,6 +1,5 @@
 package speedy
 
-import scala.reflect.ClassTag
 import scala.collection.mutable.ListBuffer
 
 /** The type of value `V` is not covariant as in the `Map[K, +V]` because SMap
@@ -11,7 +10,7 @@ import scala.collection.mutable.ListBuffer
   * and update it later without worries of SMap structure additions or
   * modifications.
   */
-sealed trait SMap[K, V] extends PartialFunction[K, V] {
+sealed trait SMap[K, +V] extends PartialFunction[K, V] {
   self => // todo: @wip make V covariant +V
   import SMap._
 
@@ -58,22 +57,22 @@ sealed trait SMap[K, V] extends PartialFunction[K, V] {
     * that the method cannot return the `null` - when the existing entry is not
     * found it will alway be the new map with the added entry.
     */
-  def addOrGetEntry(entry: Entry[K, V]): SMap[K, V] = entry
+  def addOrGetEntry[V1 >: V](entry: Entry[K, V1]): SMap[K, V1] = entry
 
   /** Returns the new map with old entry replaced by the new entry. Note that
     * the old entry should be present.
     */
-  protected def replaceEntry(
-      oldEntry: Entry[K, V],
-      newEntry: Entry[K, V]
-  ): SMap[K, V] = this
+  protected def replaceEntry[V1 >: V](
+      oldEntry: Entry[K, V1],
+      newEntry: Entry[K, V1]
+  ): SMap[K, V1] = this
 
   /** Removes the certainly present old entry and returns the new map without
     * the entry.
     */
-  protected def removeEntry(entry: Entry[K, V]): SMap[K, V] = this
+  protected def removeEntry[V1 >: V](entry: Entry[K, V1]): SMap[K, V1] = this
 
-  def updated(key: K, entry: Entry[K, V]): SMap[K, V] = {
+  def updated[V1 >: V](key: K, entry: Entry[K, V1]): SMap[K, V1] = {
     addOrGetEntry(entry) match {
       case found: Entry[K, V] if (found ne entry) =>
         replaceEntry(found, found.replaceOrAdd(key, entry))
@@ -84,17 +83,17 @@ sealed trait SMap[K, V] extends PartialFunction[K, V] {
   /** Creates a new map obtained by updating this map with a given key/value
     * pair.
     */
-  def updated(key: K, value: V): SMap[K, V] =
+  def updated[V1 >: V](key: K, value: V1): SMap[K, V1] =
     updated(key, createEntry(key, value))
 
   /** Alias for `updated`
     */
-  def +(kv: (K, V)): SMap[K, V] = updated(kv._1, kv._2)
+  def +[V1 >: V](kv: (K, V1)): SMap[K, V1] = updated(kv._1, kv._2)
 
   /** Produces the new map with the new entry or returns the existing map if the
     * entry with the key is already present
     */
-  def updatedOrKept(key: K, entry: Entry[K, V]): SMap[K, V] = {
+  def updatedOrKept[V1 >: V](key: K, entry: Entry[K, V1]): SMap[K, V1] = {
     addOrGetEntry(entry) match {
       case found: Entry[K, V] if (found ne entry) => {
         val newEntry = found.keepOrAdd(key, entry)
@@ -107,7 +106,7 @@ sealed trait SMap[K, V] extends PartialFunction[K, V] {
   /** Produces the new map with the new entry or returns the existing map if the
     * entry with the key is already present
     */
-  def updatedOrKept(key: K, value: V): SMap[K, V] =
+  def updatedOrKept[V1 >: V](key: K, value: V1): SMap[K, V1] =
     updatedOrKept(key, createEntry(key, value))
 
   /** Returns the new map without the specified hash and key (if found) or
@@ -132,12 +131,12 @@ sealed trait SMap[K, V] extends PartialFunction[K, V] {
     * calls. So you may pass the empty `parentStack` into the first `foreach`
     * and then keep passing the same `parentStack` into the subsequent calls
     */
-  def foreachWith[S](
+  def foreachWith[S, V1 >: V](
       state: S,
       startIndex: Int = 0,
       parentStack: ParentStack = null
   )(
-      handler: (S, Int, KeyValue[K, V]) => Unit
+      handler: (S, Int, KeyValue[K, V1]) => Unit
   ): Int = {
     var i = startIndex
     if (!isEmpty) {
@@ -191,8 +190,8 @@ sealed trait SMap[K, V] extends PartialFunction[K, V] {
     i
   }
 
-  def foreach[U](f: ((K, V)) => U): Unit =
-    foreachWith[((K, V)) => U](f)((f_, _, kv) => f_(KeyValue.tupled2(kv)))
+  def foreach[U, V1 >: V](f: ((K, V1)) => U): Unit =
+    foreachWith[((K, V1)) => U, V1](f)((f_, _, kv) => f_(KeyValue.tupled2(kv)))
 
   def toList: List[(K, V)] = {
     val l = ListBuffer.empty[(K, V)]
@@ -351,7 +350,7 @@ object SMap {
       }
   }
 
-  trait KeyValue[K, V] {
+  trait KeyValue[K, +V] {
     def key: K
     def value: V
     def hash: Int
@@ -366,7 +365,7 @@ object SMap {
       (kv.key, kv.value, kv.hash)
   }
 
-  protected abstract class Entry[K, V](val hash: Int) extends SMap[K, V] {
+  protected abstract class Entry[K, +V](val hash: Int) extends SMap[K, V] {
 
     /** Get the value if the `key` is matching the one stored in the entry
       */
@@ -389,12 +388,12 @@ object SMap {
     /** Updating the entry with the new one. For the conflicted hash entry it
       * may add the entry. It cannot return an empty map.
       */
-    def replaceOrAdd(key: K, entry: Entry[K, V]): Entry[K, V]
+    def replaceOrAdd[V1 >: V](key: K, entry: Entry[K, V1]): Entry[K, V1]
 
     /** If the `key` is present in entry then return the original, otherwise
       * adds the new entry.
       */
-    def keepOrAdd(key: K, entry: Entry[K, V]): Entry[K, V]
+    def keepOrAdd[V1 >: V](key: K, entry: Entry[K, V1]): Entry[K, V1]
 
     /** Abstracts eviction of the key from the entry. Normally it will keep the
       * entry because the key is part of it. But for hash-conflicted multi-key
@@ -413,16 +412,16 @@ object SMap {
       * because this is the responsibility of `replaceEntry`. So you may always
       * expect the same entry to be returned for the conflicting hash.
       */
-    override def addOrGetEntry(entry: Entry[K, V]): SMap[K, V] =
+    override def addOrGetEntry[V1 >: V](entry: Entry[K, V1]): SMap[K, V1] =
       if (entry.hash > hash) Leaf2(this, entry)
       else if (entry.hash < hash) Leaf2(entry, this)
       else this
 
     /** When down to the entry, the oldEntry should be present in the entry
       */
-    override protected def replaceEntry(
-        oldEntry: Entry[K, V],
-        newEntry: Entry[K, V]
+    override protected def replaceEntry[V1 >: V](
+        oldEntry: Entry[K, V1],
+        newEntry: Entry[K, V1]
     ) = {
       assert(this eq oldEntry)
       newEntry
@@ -430,13 +429,15 @@ object SMap {
 
     /** When down to the entry, the entry should be present in the entry
       */
-    override protected def removeEntry(entry: Entry[K, V]): SMap[K, V] = {
+    override protected def removeEntry[V1 >: V](
+        entry: Entry[K, V1]
+    ): SMap[K, V1] = {
       assert(this eq entry)
       SMap.empty
     }
   }
 
-  final case class VEntry[V](override val hash: Int, override val value: V)
+  final case class VEntry[+V](override val hash: Int, override val value: V)
       extends Entry[Int, V](hash)
       with KeyValue[Int, V] {
 
@@ -455,25 +456,31 @@ object SMap {
       if (key == hash) value
       else throw new IllegalStateException(s"key `$key` not found")
 
-    override def replaceOrAdd(key: Int, entry: Entry[Int, V]): Entry[Int, V] =
+    override def replaceOrAdd[V1 >: V](
+        key: Int,
+        entry: Entry[Int, V1]
+    ): Entry[Int, V1] =
       entry
 
-    override def keepOrAdd(key: Int, entry: Entry[Int, V]): Entry[Int, V] =
+    override def keepOrAdd[V1 >: V](
+        key: Int,
+        entry: Entry[Int, V1]
+    ): Entry[Int, V1] =
       this
 
-    override def foreachWith[S](
+    override def foreachWith[S, V1 >: V](
         state: S,
         startIndex: Int = 0,
         parentStack: ParentStack = null
     )(
-        handler: (S, Int, KeyValue[Int, V]) => Unit
+        handler: (S, Int, KeyValue[Int, V1]) => Unit
     ): Int = {
       handler(state, startIndex, this)
       startIndex + 1
     }
   }
 
-  final case class KVEntry[K, V](
+  final case class KVEntry[K, +V](
       override val hash: Int,
       override val key: K,
       override val value: V
@@ -493,35 +500,38 @@ object SMap {
       if (this.key == key) value
       else throw new IllegalStateException(s"key `$key` is not found")
 
-    override def replaceOrAdd(key: K, entry: Entry[K, V]): Entry[K, V] =
+    override def replaceOrAdd[V1 >: V](
+        key: K,
+        entry: Entry[K, V1]
+    ): Entry[K, V1] =
       if (this.key == key) entry
       else {
-        val newEntry = entry.asInstanceOf[KVEntry[K, V]]
-        HashConflictingEntry(hash, Array(newEntry, this))
+        val newEntry = entry.asInstanceOf[KVEntry[K, V1]]
+        HashConflictingEntry(hash, List(newEntry, this))
       }
 
-    override def keepOrAdd(key: K, entry: Entry[K, V]): Entry[K, V] =
+    override def keepOrAdd[V1 >: V](key: K, entry: Entry[K, V1]): Entry[K, V1] =
       if (this.key == key) this
       else {
-        val newEntry = entry.asInstanceOf[KVEntry[K, V]]
-        HashConflictingEntry(hash, Array(newEntry, this))
+        val newEntry = entry.asInstanceOf[KVEntry[K, V1]]
+        HashConflictingEntry(hash, List(newEntry, this))
       }
 
-    override def foreachWith[S](
+    override def foreachWith[S, V1 >: V](
         state: S,
         startIndex: Int = 0,
         parentStack: ParentStack = null
     )(
-        handler: (S, Int, KeyValue[K, V]) => Unit
+        handler: (S, Int, KeyValue[K, V1]) => Unit
     ): Int = {
       handler(state, startIndex, this)
       startIndex + 1
     }
   }
 
-  final protected case class HashConflictingEntry[K, V](
+  final protected case class HashConflictingEntry[K, +V](
       override val hash: Int,
-      conflicts: Array[KVEntry[K, V]]
+      conflicts: List[KVEntry[K, V]]
   ) extends Entry[K, V](hash) {
 
     override def size: Int = conflicts.length
@@ -545,52 +555,44 @@ object SMap {
       else throw new IllegalStateException(s"key `$key` not found")
     }
 
-    override def replaceOrAdd(key: K, entry: Entry[K, V]): Entry[K, V] = {
+    override def replaceOrAdd[V1 >: V](
+        key: K,
+        entry: Entry[K, V1]
+    ): Entry[K, V1] = {
       val i = conflicts.indexWhere(_.key == key)
-      // todo: @safety @simplify try to remove asInstanceOf here
-      val newEntry = entry.asInstanceOf[KVEntry[K, V]]
-      copy(conflicts = appendOrReplace(conflicts, newEntry, i))
+      val newEntry = entry.asInstanceOf[KVEntry[K, V1]]
+      copy(conflicts =
+        if (i == -1) newEntry :: conflicts else conflicts.updated(i, newEntry)
+      )
     }
 
-    override def keepOrAdd(key: K, entry: Entry[K, V]): Entry[K, V] = {
+    override def keepOrAdd[V1 >: V](
+        key: K,
+        entry: Entry[K, V1]
+    ): Entry[K, V1] = {
       val i = conflicts.indexWhere(_.key == key)
       if (i != -1)
         this
       else {
-        // todo: @safety @simplify try to remove asInstanceOf here
-        val newEntry = entry.asInstanceOf[KVEntry[K, V]]
-        copy(conflicts = append(conflicts, newEntry))
+        val newEntry = entry.asInstanceOf[KVEntry[K, V1]]
+        copy(conflicts = newEntry :: conflicts)
       }
     }
 
     override def removeKeyOrKeep(key: K): Entry[K, V] = {
       val cs = conflicts
-      val i = cs.indexWhere(_.key == key)
+      val i = conflicts.indexWhere(_.key == key)
       if (i == -1) this
-      else {
-        if (cs.length == 2) {
-          if (i == 0) cs(1) else cs(0)
-        } else {
-          val newConflicts = new Array[KVEntry[K, V]](cs.length - 1)
-          var it = 0; var j = 0
-          for (item <- cs) {
-            if (it != i) {
-              newConflicts(j) = item
-              j += 1
-            }
-            it += 1
-          }
-          HashConflictingEntry(hash, newConflicts)
-        }
-      }
+      else
+        copy(conflicts = cs.splitAt(i) match { case (a, b) => a ++ b.drop(1) })
     }
 
-    override def foreachWith[S](
+    override def foreachWith[S, V1 >: V](
         state: S,
         startIndex: Int = 0,
         parentStack: ParentStack = null
     )(
-        handler: (S, Int, KeyValue[K, V]) => Unit
+        handler: (S, Int, KeyValue[K, V1]) => Unit
     ): Int = {
       var i = startIndex
       for (e <- conflicts) {
@@ -601,25 +603,7 @@ object SMap {
     }
   }
 
-  private def appendOrReplace[T](items: Array[T], item: T, i: Int)(implicit
-      ev: ClassTag[T]
-  ): Array[T] = {
-    val newItems = new Array[T](if (i != -1) items.length else items.length + 1)
-    items.copyToArray(newItems)
-    newItems(if (i != -1) i else items.length) = item
-    newItems
-  }
-
-  private def append[T](items: Array[T], item: T)(implicit
-      ev: ClassTag[T]
-  ): Array[T] = {
-    val newItems = new Array[T](items.length + 1)
-    items.copyToArray(newItems)
-    newItems(items.length) = item
-    newItems
-  }
-
-  protected final case class Leaf2[K, V](e0: Entry[K, V], e1: Entry[K, V])
+  protected final case class Leaf2[K, +V](e0: Entry[K, V], e1: Entry[K, V])
       extends SMap[K, V] {
 
     assert(e0.hash < e1.hash)
@@ -637,28 +621,28 @@ object SMap {
     override def getSurePresentEntry(hash: Int): Entry[K, V] =
       if (hash == e0.hash) e0 else e1
 
-    override def addOrGetEntry(entry: Entry[K, V]): SMap[K, V] =
+    override def addOrGetEntry[V1 >: V](entry: Entry[K, V1]): SMap[K, V1] =
       entry.hash match {
         case e0.hash => e0
         case e1.hash => e1
         case _       => Leaf2Plus(entry, this)
       }
 
-    override def replaceEntry(
-        oldEntry: Entry[K, V],
-        newEntry: Entry[K, V]
-    ): SMap[K, V] =
+    override def replaceEntry[V1 >: V](
+        oldEntry: Entry[K, V1],
+        newEntry: Entry[K, V1]
+    ): SMap[K, V1] =
       if (oldEntry eq e0) Leaf2(newEntry, e1) else Leaf2(e0, newEntry)
 
-    override def removeEntry(entry: Entry[K, V]): SMap[K, V] =
+    override def removeEntry[V1 >: V](entry: Entry[K, V1]): SMap[K, V1] =
       if (e0 eq entry) e1 else e0
 
-    override def foreachWith[S](
+    override def foreachWith[S, V1 >: V](
         state: S,
         startIndex: Int = 0,
         parentStack: ParentStack = null
     )(
-        handler: (S, Int, KeyValue[K, V]) => Unit
+        handler: (S, Int, KeyValue[K, V1]) => Unit
     ): Int = {
       var i = startIndex
       i = e0.foreachWith(state, i, parentStack)(handler)
@@ -667,7 +651,7 @@ object SMap {
     }
   }
 
-  protected final case class Leaf2Plus[K, V](p: Entry[K, V], l: Leaf2[K, V])
+  protected final case class Leaf2Plus[K, +V](p: Entry[K, V], l: Leaf2[K, V])
       extends SMap[K, V] {
 
     override def size = p.size + l.e0.size + l.e1.size
@@ -686,34 +670,34 @@ object SMap {
     override def getSurePresentEntry(hash: Int): Entry[K, V] =
       if (hash == p.hash) p else if (hash == l.e0.hash) l.e0 else l.e1
 
-    override def addOrGetEntry(entry: Entry[K, V]): SMap[K, V] = {
+    override def addOrGetEntry[V1 >: V](entry: Entry[K, V1]): SMap[K, V1] = {
       val found = getEntryOrNull(entry.hash)
       if (found ne null) found else Leaf2PlusPlus(entry, this)
     }
 
-    override def replaceEntry(
-        oldEntry: Entry[K, V],
-        newEntry: Entry[K, V]
-    ): SMap[K, V] =
+    override def replaceEntry[V1 >: V](
+        oldEntry: Entry[K, V1],
+        newEntry: Entry[K, V1]
+    ): SMap[K, V1] =
       if (oldEntry eq p) Leaf2Plus(newEntry, l)
       else if (oldEntry eq l.e0)
         Leaf2Plus(p, Leaf2(newEntry, l.e1))
       else
         Leaf2Plus(p, Leaf2(l.e0, newEntry))
 
-    override def removeEntry(entry: Entry[K, V]): SMap[K, V] =
+    override def removeEntry[V1 >: V](entry: Entry[K, V1]): SMap[K, V1] =
       if (entry eq p) l
       else if (entry eq l.e0)
         (if (p.hash < l.e1.hash) Leaf2(p, l.e1) else Leaf2(l.e1, p))
       else (if (p.hash < l.e0.hash) Leaf2(p, l.e0)
             else Leaf2(l.e0, p))
 
-    override def foreachWith[S](
+    override def foreachWith[S, V1 >: V](
         state: S,
         startIndex: Int = 0,
         parentStack: ParentStack = null
     )(
-        handler: (S, Int, KeyValue[K, V]) => Unit
+        handler: (S, Int, KeyValue[K, V1]) => Unit
     ): Int = {
       var lp = p; val ph = lp.hash
       var le0 = l.e0; var le1 = l.e1; var t: Entry[K, V] = null
@@ -731,7 +715,7 @@ object SMap {
     }
   }
 
-  protected final case class Leaf2PlusPlus[K, V](
+  protected final case class Leaf2PlusPlus[K, +V](
       p: Entry[K, V],
       l: Leaf2Plus[K, V]
   ) extends SMap[K, V] {
@@ -753,14 +737,15 @@ object SMap {
     override def getSurePresentEntry(hash: Int) =
       if (hash == p.hash) p else l.getSurePresentEntry(hash)
 
-    override def addOrGetEntry(entry: Entry[K, V]): SMap[K, V] = {
+    override def addOrGetEntry[V1 >: V](entry: Entry[K, V1]): SMap[K, V1] = {
       val found = getEntryOrNull(entry.hash)
       if (found ne null) found
       else {
-        var lp = l.p; val lph = lp.hash
-        var e0 = l.l.e0; var e1 = l.l.e1; var t: Entry[K, V] = null
+        var lp: Entry[K, V1] = l.p; val lph = lp.hash
+        var e0: Entry[K, V1] = l.l.e0; var e1: Entry[K, V1] = l.l.e1;
+        var t: Entry[K, V1] = null
 
-        // e0 and e1 are already sorted e0 < e1, we need to insert the lp, p_, e in the right order,
+        // e0 and e1 are already sorted e0 < e1, we need to insert the lp, px, e in the right order,
         // so the result should be e0 < e1 < lp < p < e
         if (lph < e1.hash) {
           t = lp; lp = e1; e1 = t
@@ -769,9 +754,9 @@ object SMap {
           }
         }
 
-        var p_ = p; val ph = p_.hash;
+        var px: Entry[K, V1] = p; val ph = px.hash;
         if (ph < lp.hash) {
-          t = p_; p_ = lp; lp = t
+          t = px; px = lp; lp = t
           if (ph < e1.hash) {
             t = lp; lp = e1; e1 = t
             if (ph < e0.hash) {
@@ -781,10 +766,10 @@ object SMap {
         }
 
         var e = entry; val h = e.hash
-        if (h < p_.hash) {
-          t = e; e = p_; p_ = t
+        if (h < px.hash) {
+          t = e; e = px; px = t
           if (h < lp.hash) {
-            t = p_; p_ = lp; lp = t
+            t = px; px = lp; lp = t
             if (h < e1.hash) {
               t = lp; lp = e1; e1 = t
               if (h < e0.hash) {
@@ -794,14 +779,14 @@ object SMap {
           }
         }
 
-        Leaf5(e0, e1, lp, p_, e)
+        Leaf5(e0, e1, lp, px, e)
       }
     }
 
-    override def replaceEntry(
-        oldEntry: Entry[K, V],
-        newEntry: Entry[K, V]
-    ): SMap[K, V] =
+    override def replaceEntry[V1 >: V](
+        oldEntry: Entry[K, V1],
+        newEntry: Entry[K, V1]
+    ): SMap[K, V1] =
       if (oldEntry eq p) Leaf2PlusPlus(newEntry, l)
       else if (oldEntry eq l.p) Leaf2PlusPlus(p, Leaf2Plus(newEntry, l.l))
       else if (oldEntry eq l.l.e0)
@@ -809,7 +794,9 @@ object SMap {
       else
         Leaf2PlusPlus(p, Leaf2Plus(l.p, Leaf2(l.l.e0, newEntry)))
 
-    override protected def removeEntry(entry: Entry[K, V]): SMap[K, V] =
+    override protected def removeEntry[V1 >: V](
+        entry: Entry[K, V1]
+    ): SMap[K, V1] =
       if (entry eq p) l
       else if (entry eq l.p) Leaf2Plus(p, l.l)
       else if (entry eq l.l.e0)
@@ -818,12 +805,12 @@ object SMap {
       else (if (l.p.hash < l.l.e0.hash) Leaf2Plus(p, Leaf2(l.p, l.l.e0))
             else Leaf2Plus(p, Leaf2(l.l.e0, l.p)))
 
-    override def foreachWith[S](
+    override def foreachWith[S, V1 >: V](
         state: S,
         startIndex: Int = 0,
         parentStack: ParentStack = null
     )(
-        handler: (S, Int, KeyValue[K, V]) => Unit
+        handler: (S, Int, KeyValue[K, V1]) => Unit
     ): Int = {
       var lp = p; var lpp = l.p
       val ph = lp.hash; val pph = lpp.hash; val ll = l.l
@@ -853,7 +840,7 @@ object SMap {
     }
   }
 
-  protected final case class Leaf5[K, V](
+  protected final case class Leaf5[K, +V](
       e0: Entry[K, V],
       e1: Entry[K, V],
       e2: Entry[K, V],
@@ -887,15 +874,15 @@ object SMap {
       case _       => e4
     }
 
-    override def addOrGetEntry(entry: Entry[K, V]): SMap[K, V] = {
+    override def addOrGetEntry[V1 >: V](entry: Entry[K, V1]): SMap[K, V1] = {
       val found = getEntryOrNull(entry.hash)
       if (found ne null) found else Leaf5Plus(entry, this)
     }
 
-    override def replaceEntry(
-        oldEntry: Entry[K, V],
-        newEntry: Entry[K, V]
-    ): SMap[K, V] =
+    override def replaceEntry[V1 >: V](
+        oldEntry: Entry[K, V1],
+        newEntry: Entry[K, V1]
+    ): SMap[K, V1] =
       if (oldEntry eq e0) Leaf5(newEntry, e1, e2, e3, e4)
       else if (oldEntry eq e1) Leaf5(e0, newEntry, e2, e3, e4)
       else if (oldEntry eq e2) Leaf5(e0, e1, newEntry, e3, e4)
@@ -903,7 +890,9 @@ object SMap {
       else
         Leaf5(e0, e1, e2, e3, newEntry)
 
-    override protected def removeEntry(entry: Entry[K, V]): SMap[K, V] =
+    override protected def removeEntry[V1 >: V](
+        entry: Entry[K, V1]
+    ): SMap[K, V1] =
       if (entry eq e0) Leaf2PlusPlus(e4, Leaf2Plus(e3, Leaf2(e1, e2)))
       else if (entry eq e1) Leaf2PlusPlus(e4, Leaf2Plus(e3, Leaf2(e0, e2)))
       else if (entry eq e2) Leaf2PlusPlus(e4, Leaf2Plus(e3, Leaf2(e0, e1)))
@@ -911,12 +900,12 @@ object SMap {
       else
         Leaf2PlusPlus(e3, Leaf2Plus(e2, Leaf2(e0, e1)))
 
-    override def foreachWith[S](
+    override def foreachWith[S, V1 >: V](
         state: S,
         startIndex: Int = 0,
         parentStack: ParentStack = null
     )(
-        handler: (S, Int, KeyValue[K, V]) => Unit
+        handler: (S, Int, KeyValue[K, V1]) => Unit
     ): Int = {
       var i = startIndex
       i = e0.foreachWith(state, i, parentStack)(handler)
@@ -928,7 +917,7 @@ object SMap {
     }
   }
 
-  protected final case class Leaf5Plus[K, V](p: Entry[K, V], l: Leaf5[K, V])
+  protected final case class Leaf5Plus[K, +V](p: Entry[K, V], l: Leaf5[K, V])
       extends SMap[K, V] {
 
     override def size = p.size + l.size
@@ -954,15 +943,15 @@ object SMap {
       case _         => l.e4
     }
 
-    override def addOrGetEntry(entry: Entry[K, V]): SMap[K, V] = {
+    override def addOrGetEntry[V1 >: V](entry: Entry[K, V1]): SMap[K, V1] = {
       val found = getEntryOrNull(entry.hash)
       if (found ne null) found else Leaf5PlusPlus(entry, this)
     }
 
-    override def replaceEntry(
-        oldEntry: Entry[K, V],
-        newEntry: Entry[K, V]
-    ): SMap[K, V] =
+    override def replaceEntry[V1 >: V](
+        oldEntry: Entry[K, V1],
+        newEntry: Entry[K, V1]
+    ): SMap[K, V1] =
       if (oldEntry eq p)
         Leaf5Plus(newEntry, l)
       else {
@@ -975,15 +964,15 @@ object SMap {
         else Leaf5Plus(p, Leaf5(e0, e1, e2, e3, newEntry))
       }
 
-    override def removeEntry(entry: Entry[K, V]): SMap[K, V] =
+    override def removeEntry[V1 >: V](entry: Entry[K, V1]): SMap[K, V1] =
       if (p eq entry) l
       else {
-        var p_ = p; val ph = p_.hash
+        var px = p; val ph = px.hash
         var e0 = l.e0; var e1 = l.e1; var e2 = l.e2; var e3 = l.e3
         var e4 = l.e4
         var t: Entry[K, V] = null
         if (ph < e4.hash) {
-          t = e4; e4 = p_; p_ = t
+          t = e4; e4 = px; px = t
           if (ph < e3.hash) {
             t = e3; e3 = e4; e4 = t
             if (ph < e2.hash) {
@@ -998,20 +987,20 @@ object SMap {
           }
         }
 
-        if (entry eq e0) Leaf5(e1, e2, e3, e4, p_)
-        else if (entry eq e1) Leaf5(e0, e2, e3, e4, p_)
-        else if (entry eq e2) Leaf5(e0, e1, e3, e4, p_)
-        else if (entry eq e3) Leaf5(e0, e1, e2, e4, p_)
-        else if (entry eq e4) Leaf5(e0, e1, e2, e3, p_)
+        if (entry eq e0) Leaf5(e1, e2, e3, e4, px)
+        else if (entry eq e1) Leaf5(e0, e2, e3, e4, px)
+        else if (entry eq e2) Leaf5(e0, e1, e3, e4, px)
+        else if (entry eq e3) Leaf5(e0, e1, e2, e4, px)
+        else if (entry eq e4) Leaf5(e0, e1, e2, e3, px)
         else Leaf5(e0, e1, e2, e3, e4)
       }
 
-    override def foreachWith[S](
+    override def foreachWith[S, V1 >: V](
         state: S,
         startIndex: Int = 0,
         parentStack: ParentStack = null
     )(
-        handler: (S, Int, KeyValue[K, V]) => Unit
+        handler: (S, Int, KeyValue[K, V1]) => Unit
     ): Int = {
       var lp = p; val ph = p.hash; val ll = l
       var le0 = ll.e0; var le1 = ll.e1; var le2 = ll.e2
@@ -1043,7 +1032,7 @@ object SMap {
     }
   }
 
-  protected final case class Leaf5PlusPlus[K, V](
+  protected final case class Leaf5PlusPlus[K, +V](
       p: Entry[K, V],
       l: Leaf5Plus[K, V]
   ) extends SMap[K, V] {
@@ -1071,20 +1060,22 @@ object SMap {
       else if (hash == l.p.hash) l.p
       else l.l.getSurePresentEntry(hash)
 
-    override def addOrGetEntry(entry: Entry[K, V]) = {
+    override def addOrGetEntry[V1 >: V](entry: Entry[K, V1]) = {
       val hash = entry.hash
       val found = getEntryOrNull(hash)
       if (found ne null) found
       else {
         val ll = l.l
-        var e0 = ll.e0; var e1 = ll.e1; var e2 = ll.e2; var e3 = ll.e3
-        var e4 = ll.e4
-        var p_ = p; val ph = p_.hash; var lp = l.p; val lph = lp.hash
+        var e0: Entry[K, V1] = ll.e0; var e1: Entry[K, V1] = ll.e1;
+        var e2: Entry[K, V1] = ll.e2; var e3: Entry[K, V1] = ll.e3
+        var e4: Entry[K, V1] = ll.e4
+        var px: Entry[K, V1] = p; val ph = px.hash; var lp: Entry[K, V1] = l.p;
+        val lph = lp.hash
 
         val right = hash > e4.hash && ph > e4.hash && lph > e4.hash
         val left = !right && hash < e0.hash && ph < e0.hash && lph < e0.hash
 
-        var t: Entry[K, V] = null
+        var t: Entry[K, V1] = null
         if (lph < e4.hash) {
           t = e4; e4 = lp; lp = t
           if (lph < e3.hash) {
@@ -1102,7 +1093,7 @@ object SMap {
         }
 
         if (ph < lp.hash) {
-          t = lp; lp = p_; p_ = t
+          t = lp; lp = px; px = t
           if (ph < e4.hash) {
             t = e4; e4 = lp; lp = t
             if (ph < e3.hash) {
@@ -1121,10 +1112,10 @@ object SMap {
         }
 
         var e = entry
-        if (hash < p_.hash) {
-          t = p_; p_ = e; e = t
+        if (hash < px.hash) {
+          t = px; px = e; e = t
           if (hash < lp.hash) {
-            t = lp; lp = p_; p_ = t
+            t = lp; lp = px; px = t
             if (hash < e4.hash) {
               t = e4; e4 = lp; lp = t
               if (hash < e3.hash) {
@@ -1144,12 +1135,15 @@ object SMap {
         }
 
         if (left) Branch2(Leaf2(e0, e1), e2, l)
-        else if (right) Branch2(ll, lp, Leaf2(p_, e))
-        else Branch2(Leaf5(e0, e1, e2, e3, e4), lp, Leaf2(p_, e))
+        else if (right) Branch2(ll, lp, Leaf2(px, e))
+        else Branch2(Leaf5(e0, e1, e2, e3, e4), lp, Leaf2(px, e))
       }
     }
 
-    override def replaceEntry(oldEntry: Entry[K, V], newEntry: Entry[K, V]) = {
+    override def replaceEntry[V1 >: V](
+        oldEntry: Entry[K, V1],
+        newEntry: Entry[K, V1]
+    ) = {
       if (p eq oldEntry)
         Leaf5PlusPlus(newEntry, l)
       else if (l.p eq oldEntry)
@@ -1186,11 +1180,11 @@ object SMap {
       }
     }
 
-    override protected def removeEntry(entry: Entry[K, V]) = {
+    override protected def removeEntry[V1 >: V](entry: Entry[K, V1]) = {
       if (p eq entry) l
       else if (l.p eq entry) Leaf5Plus(p, l.l)
       else {
-        var p_ = p; var lp = l.p
+        var px = p; var lp = l.p
         val ll = l.l; val lph = lp.hash; val ph = p.hash
         var e0 = ll.e0; var e1 = ll.e1; var e2 = ll.e2; var e3 = ll.e3
         var e4 = ll.e4
@@ -1211,7 +1205,7 @@ object SMap {
           }
         }
         if (ph < lp.hash) {
-          t = lp; lp = p_; p_ = t
+          t = lp; lp = px; px = t
           if (ph < e4.hash) {
             t = e4; e4 = lp; lp = t
             if (ph < e3.hash) {
@@ -1228,22 +1222,22 @@ object SMap {
             }
           }
         }
-        if (entry eq e0) Leaf5Plus(p_, Leaf5(e1, e2, e3, e4, lp))
-        else if (entry eq e1) Leaf5Plus(p_, Leaf5(e0, e2, e3, e4, lp))
-        else if (entry eq e2) Leaf5Plus(p_, Leaf5(e0, e1, e3, e4, lp))
-        else if (entry eq e3) Leaf5Plus(p_, Leaf5(e0, e1, e2, e4, lp))
-        else if (entry eq e4) Leaf5Plus(p_, Leaf5(e0, e1, e2, e3, lp))
-        else if (entry eq lp) Leaf5Plus(p_, Leaf5(e0, e1, e2, e3, e4))
+        if (entry eq e0) Leaf5Plus(px, Leaf5(e1, e2, e3, e4, lp))
+        else if (entry eq e1) Leaf5Plus(px, Leaf5(e0, e2, e3, e4, lp))
+        else if (entry eq e2) Leaf5Plus(px, Leaf5(e0, e1, e3, e4, lp))
+        else if (entry eq e3) Leaf5Plus(px, Leaf5(e0, e1, e2, e4, lp))
+        else if (entry eq e4) Leaf5Plus(px, Leaf5(e0, e1, e2, e3, lp))
+        else if (entry eq lp) Leaf5Plus(px, Leaf5(e0, e1, e2, e3, e4))
         else Leaf5Plus(lp, Leaf5(e0, e1, e2, e3, e4))
       }
     }
 
-    override def foreachWith[S](
+    override def foreachWith[S, V1 >: V](
         state: S,
         startIndex: Int = 0,
         parentStack: ParentStack = null
     )(
-        handler: (S, Int, KeyValue[K, V]) => Unit
+        handler: (S, Int, KeyValue[K, V1]) => Unit
     ): Int = {
       var lp = p; val ph = p.hash
       var lpp = l.p; val pph = lpp.hash; val ll = l.l
@@ -1297,7 +1291,7 @@ object SMap {
 
   /** Branch of 2 leafs or branches with entry in the middle
     */
-  protected final case class Branch2[K, V](
+  protected final case class Branch2[K, +V](
       left: SMap[K, V],
       e: Entry[K, V],
       right: SMap[K, V]
@@ -1319,7 +1313,7 @@ object SMap {
       else if (hash < e.hash) left.getSurePresentEntry(hash)
       else e
 
-    override def addOrGetEntry(entry: Entry[K, V]) = {
+    override def addOrGetEntry[V1 >: V](entry: Entry[K, V1]) = {
       val hash = entry.hash
       if (hash > e.hash)
         right.addOrGetEntry(entry) match {
@@ -1340,7 +1334,10 @@ object SMap {
       } else e
     }
 
-    override def replaceEntry(oldEntry: Entry[K, V], newEntry: Entry[K, V]) =
+    override def replaceEntry[V1 >: V](
+        oldEntry: Entry[K, V1],
+        newEntry: Entry[K, V1]
+    ) =
       if (oldEntry eq e)
         Branch2(left, newEntry, right)
       else if (oldEntry.hash > e.hash)
@@ -1348,7 +1345,7 @@ object SMap {
       else
         Branch2(left.replaceEntry(oldEntry, newEntry), e, right)
 
-    override def removeEntry(entry: Entry[K, V]) = {
+    override def removeEntry[V1 >: V](entry: Entry[K, V1]) = {
       // The downward phase for deleting an element from a 2-3 tree is the same as the downward phase
       // for inserting an element except for the case when the element to be deleted is equal to the value in
       // a 2-node or a 3-node. In this case, if the value is not part of a terminal node, the value is replaced
@@ -1428,7 +1425,7 @@ object SMap {
     }
   }
 
-  protected final case class Branch3[K, V](
+  protected final case class Branch3[K, +V](
       left: SMap[K, V],
       e0: Entry[K, V],
       mid: SMap[K, V],
@@ -1458,7 +1455,7 @@ object SMap {
       else if (hash == e1.hash) e1
       else mid.getSurePresentEntry(hash)
 
-    override def addOrGetEntry(entry: Entry[K, V]) = {
+    override def addOrGetEntry[V1 >: V](entry: Entry[K, V1]) = {
       val hash = entry.hash; val h0 = e0.hash; val h1 = e1.hash
       if (hash > h1)
         right.addOrGetEntry(entry) match {
@@ -1492,7 +1489,10 @@ object SMap {
       else e1
     }
 
-    override def replaceEntry(oldEntry: Entry[K, V], newEntry: Entry[K, V]) = {
+    override def replaceEntry[V1 >: V](
+        oldEntry: Entry[K, V1],
+        newEntry: Entry[K, V1]
+    ) = {
       val h = oldEntry.hash; val h0 = e0.hash; val h1 = e1.hash
       if (h > h1)
         Branch3(left, e0, mid, e1, right.replaceEntry(oldEntry, newEntry))
@@ -1504,7 +1504,7 @@ object SMap {
       else Branch3(left, e0, mid, newEntry, right)
     }
 
-    override def removeEntry(entry: Entry[K, V]) = {
+    override def removeEntry[V1 >: V](entry: Entry[K, V1]) = {
       // case 1 downward:
       // swap the predecessor entry (max left entry) with the mid entry,
       // then proceed to remove the predecessor from the Left branch
