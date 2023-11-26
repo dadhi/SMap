@@ -72,12 +72,25 @@ sealed trait SMap[K, +V] extends PartialFunction[K, V] {
     */
   protected def removeEntry[V1 >: V](entry: Entry[K, V1]): SMap[K, V1] = this
 
+  // def updated[V1 >: V](key: K, entry: Entry[K, V1]): SMap[K, V1] = {
+  //   addOrGetEntry(entry) match {
+  //     case found: Entry[K, V] if (found ne entry) =>
+  //       replaceEntry(found, found.replaceOrAdd(key, entry))
+  //     case newMap => newMap
+  //   }
+  // }
+  
   def updated[V1 >: V](key: K, entry: Entry[K, V1]): SMap[K, V1] = {
-    addOrGetEntry(entry) match {
-      case found: Entry[K, V] if (found ne entry) =>
+    val entryOrAddedMap = addOrGetEntry(entry)
+    if (entryOrAddedMap.isInstanceOf[Entry[_, _]]) {
+      val found = entryOrAddedMap.asInstanceOf[Entry[K, V]]
+      if (found ne entry)
         replaceEntry(found, found.replaceOrAdd(key, entry))
-      case newMap => newMap
+      else
+        entryOrAddedMap
     }
+    else
+      entryOrAddedMap
   }
 
   /** Creates a new map obtained by updating this map with a given key/value
