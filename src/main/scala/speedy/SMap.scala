@@ -1369,7 +1369,7 @@ object SMap {
             }
           // *re-balance is needed when the branch was merged
           // from the Br2 to Br3 or to the Leaf and the height is decreased
-          case _: Branch2[K, V] if (!newRight.isInstanceOf[Branch2[K, V]]) =>
+          case _: Branch2[K, V] if (!newRight.isInstanceOf[Branch2[_, _]]) =>
             left match {
               // the hole has a 2-node as a parent and a 3-node as a sibling:
               case b3: Branch3[K, V] =>
@@ -1403,7 +1403,7 @@ object SMap {
             }
           // *re-balance is needed when the branch was merged
           // from Br2 to Br3 or to the leaf and the height decreased
-          case _: Branch2[K, V] if (!newLeft.isInstanceOf[Branch2[K, V]]) =>
+          case _: Branch2[K, V] if (!newLeft.isInstanceOf[Branch2[_, _]]) =>
             right match {
               // the the hole has a 2-node as a parent and a 3-node as a sibling:
               case b3: Branch3[K, V] =>
@@ -1525,7 +1525,7 @@ object SMap {
             }
           // rebalance is needed because the branch was merged
           // from Br2 to Br3 or to Leaf and the height decreased
-          case _: Branch2[K, V] if (!newLeft.isInstanceOf[Branch2[K, V]]) =>
+          case _: Branch2[K, V] if (!newLeft.isInstanceOf[Branch2[_, _]]) =>
             mid match {
               // the hole has a 3-node as a parent and a 3-node as a sibling.
               case b3: Branch3[K, V] =>
@@ -1563,7 +1563,7 @@ object SMap {
               case _ =>
                 Branch2(left, e0, right.addOrGetEntry(midMaxEntry))
             }
-          case _: Branch2[K, V] if (!newMid.isInstanceOf[Branch2[K, V]]) =>
+          case _: Branch2[K, V] if (!newMid.isInstanceOf[Branch2[_, _]]) =>
             right match {
               // the hole has a 3-node as a parent and a 3-node as a sibling.
               case b3: Branch3[K, V] =>
@@ -1598,7 +1598,7 @@ object SMap {
               }
               case _ => Branch2(left, e0, mid.addOrGetEntry(e1))
             }
-          case _: Branch2[K, V] if (!newRight.isInstanceOf[Branch2[K, V]]) =>
+          case _: Branch2[K, V] if (!newRight.isInstanceOf[Branch2[_, _]]) =>
             mid match {
               case b3: Branch3[K, V] =>
                 Branch3(

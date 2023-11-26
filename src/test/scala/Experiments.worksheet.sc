@@ -51,3 +51,11 @@ val (a, b, c) = (1, 2, 3)
 import scala.collection.mutable.ArrayBuffer
 val buffer = ArrayBuffer[Int]()
 buffer += 1
+
+val m2 = Map(1 -> "a")
+
+if (m2.isInstanceOf[Map[_, _]]) {
+  println("It's a map!")
+} else {
+  println("It's not a map!")
+}
