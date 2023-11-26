@@ -17,3 +17,7 @@ List("0", "-1", "3", "1", "-2").map(_.toInt)
 Map(1 -> 2).foreach { case (k, v) => println(s"$k -> $v") }
 
 Some("x").getOrElse("")
+
+val x: Option[String] = Some("x")
+
+//
