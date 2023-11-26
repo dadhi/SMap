@@ -1,6 +1,5 @@
 # SMap
 
-![stand with Ukraine](https://badgen.net/badge/stand%20with/UKRAINE/?color=0057B8&labelColor=FFD700)
 ![Build](https://github.com/dadhi/SMap/actions/workflows/scala.yml/badge.svg)
 
 Fast persistent immutable Map data-structure for Scala with minimal memory footprint.  
