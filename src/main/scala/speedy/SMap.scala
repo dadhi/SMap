@@ -3,7 +3,7 @@ package speedy
 import scala.collection.mutable.ListBuffer
 
 /** The type of value `V` is not covariant as in the `Map[K, +V]` because SMap
-  * allows to modify the value inside the entry. So in a sense it is
+  * allows to modify the value inside the entry. So in a senseб it is
   * semi-immutable data structure which may be used mostly as immutable and
   * additionally to have holes for values to be set or updated later. The value
   * location is fixed in memory so you may grab a reference to the SMap.Entry
