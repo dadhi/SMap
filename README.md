@@ -18,4 +18,4 @@ Btw, **S** in Map is for **Speedy**.
 - [ ] Port *CsCheck* test to *ScalaCheck*
 - [ ] Conform to `immutable.Map` trait as much as possible
 - [ ] Publish the package with initial version
-- [ ] Optimize entry to create a Set
+- [ ] Optimize the Map entry footprint for the Set
